@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "@supabase/mcp-server-postgrest": "^0.1.0"
+  },
+  "_npx": {
+    "packages": [
+      "@supabase/mcp-server-postgrest"
+    ]
+  }
+}

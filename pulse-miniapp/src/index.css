@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+@theme {
+  /* Pulse Brand — Dark Theme */
+  --color-background: #1A1D2E;
+  --color-surface: #252A3F;
+  --color-primary: #FF6B6B;
+  --color-secondary: #4ECDC4;
+  --color-accent: #FDCB6E;
+  --color-border: #3A4059;
+
+  /* Text */
+  --color-text-primary: #FFFFFF;
+  --color-text-secondary: #B2B9C4;
+  --color-text-muted: #636E72;
+
+  /* Status Colors */
+  --color-success: #00B894;
+  --color-warning: #FDCB6E;
+  --color-error: #D63031;
+  --color-trending: #FF6B6B;
+  --color-verified: #4ECDC4;
+  --color-pending: #95A5A6;
+
+  --font-sans: 'Inter', sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-text-primary antialiased;
+  }
+}
