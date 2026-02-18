@@ -1,0 +1,26 @@
+services:
+  # API та Mini App Backend
+  - type: web
+    name: pulse-api
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python api/main.py
+    envVars:
+      - key: DATABASE_URL
+        fromProject:
+          name: pulse-api
+          key: DATABASE_URL
+      - key: PYTHON_VERSION
+        value: 3.11.0
+
+  # Telegram Bot & Scraper
+  - type: worker
+    name: pulse-bot
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot/main.py
+    envVars:
+      - key: DATABASE_URL
+        fromProject:
+          name: pulse-api
+          key: DATABASE_URL
