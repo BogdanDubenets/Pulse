@@ -9,10 +9,16 @@ from sqlalchemy import select
 import asyncio
 from datetime import datetime
 
+import os
+
 class ChannelMonitor:
     def __init__(self):
+        # Переконуємось, що папка для сесії існує
+        session_path = 'session/pulse_monitor'
+        os.makedirs(os.path.dirname(session_path), exist_ok=True)
+        
         self.client = TelegramClient(
-            'session/pulse_monitor', 
+            session_path, 
             config.API_ID, 
             config.API_HASH.strip()
         )
