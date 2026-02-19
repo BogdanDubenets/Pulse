@@ -16,6 +16,11 @@ if "?sslmode=require" in db_url:
     ctx.verify_mode = ssl.CERT_NONE
     connect_args["ssl"] = ctx
 
+if ":6543" in db_url:
+    # Відключаємо кешування стейтментів для Transaction Pooler (Supabase)
+    connect_args["prepared_statement_cache_size"] = 0
+    connect_args["statement_cache_size"] = 0
+
 # Створення асинхронного engine
 engine = create_async_engine(
     db_url,
