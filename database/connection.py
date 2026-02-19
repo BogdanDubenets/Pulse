@@ -5,11 +5,16 @@ import ssl
 
 # Очищення та підготовка DATABASE_URL для asyncpg
 db_url = config.DATABASE_URL
+connect_args = {}
+
 if "?sslmode=require" in db_url:
     db_url = db_url.replace("?sslmode=require", "")
-    connect_args = {"ssl": True}
-else:
-    connect_args = {}
+    # Створюємо SSL-контекст, який дозволяє підключення без суворої перевірки сертифіката
+    # Це необхідно для баз даних у хмарах типу Supabase/Railway
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    connect_args["ssl"] = ctx
 
 # Створення асинхронного engine
 engine = create_async_engine(
