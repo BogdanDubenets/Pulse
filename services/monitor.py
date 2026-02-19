@@ -11,14 +11,23 @@ from datetime import datetime
 
 import os
 
+from telethon.sessions import StringSession
+
 class ChannelMonitor:
     def __init__(self):
-        # Переконуємось, що папка для сесії існує
-        session_path = 'session/pulse_monitor'
-        os.makedirs(os.path.dirname(session_path), exist_ok=True)
+        # Використовуємо StringSession для хмари (якщо є) або локальний файл
+        if config.TELETHON_SESSION:
+            session = StringSession(config.TELETHON_SESSION)
+            logger.info("Using StringSession for Telethon")
+        else:
+            # Переконуємось, що папка для сесії існує (для локальної розробки)
+            session_path = 'session/pulse_monitor'
+            os.makedirs(os.path.dirname(session_path), exist_ok=True)
+            session = session_path
+            logger.info(f"Using SQLiteSession at {session_path}")
         
         self.client = TelegramClient(
-            session_path, 
+            session, 
             config.API_ID, 
             config.API_HASH.strip()
         )

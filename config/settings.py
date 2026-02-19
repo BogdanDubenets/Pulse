@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     API_ID: int
     API_HASH: str
     PHONE_NUMBER: str
+    TELETHON_SESSION: Optional[str] = None
     
     # Database Configuration
     DATABASE_URL: str
