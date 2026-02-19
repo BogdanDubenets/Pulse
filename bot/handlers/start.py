@@ -30,6 +30,19 @@ def main_keyboard():
     return kb.as_markup()
 
 
+def webapp_keyboard():
+    """Клавіатура під полем вводу (Persistent Menu)"""
+    from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
+    
+    if not config.WEBAPP_URL or not config.WEBAPP_URL.startswith("https"):
+        return None
+        
+    kb = [
+        [KeyboardButton(text="📱 Відкрити Pulse", web_app=WebAppInfo(url=config.WEBAPP_URL))]
+    ]
+    return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
+
+
 def welcome_text(first_name: str) -> str:
     """Текст привітання"""
     return (
@@ -58,6 +71,15 @@ async def cmd_start(message: Message):
     
     try:
         fn = user.first_name if user else "Друже"
+        
+        # 1. Відправляємо Reply-клавіатуру (кнопка під полем вводу)
+        # Ця кнопка залишиться назавжди
+        await message.answer(
+            "👇 <b>Кнопка швидкого доступу</b>", 
+            reply_markup=webapp_keyboard()
+        )
+        
+        # 2. Відправляємо Inline-меню (кнопки під повідомленням)
         await message.answer(welcome_text(fn), reply_markup=main_keyboard())
         logger.info(f"Start message sent to {user.id}")
     except Exception as e:
