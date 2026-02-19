@@ -136,6 +136,9 @@ async def handle_forward(message: Message):
             f"{'@' + chat.username if chat.username else ''}\n\n"
             f"Підписано автоматично! 🟢"
         )
+        # Оновлюємо кеш моніторингу миттєво
+        await monitor.track_channel(channel.id)
+        
         schedule_delete(message, 3)       # Повідомлення юзера
         schedule_delete(thinking_msg, 5)  # Відповідь бота
         
@@ -200,6 +203,9 @@ async def handle_channel_link(message: Message):
                     status = "\n\n✅ Підписано!"
                 else:
                     status = "\n\n✅ Ви вже підписані"
+                
+                # Оновлюємо кеш моніторингу миттєво
+                await monitor.track_channel(existing.id)
                 
                 bot_msg = await message.answer(
                     f"📺 <b>{existing.title}</b>"
@@ -282,6 +288,9 @@ async def handle_channel_link(message: Message):
             f"@{username}\n\n"
             f"Підписано автоматично! 🟢"
         )
+        # Оновлюємо кеш моніторингу миттєво
+        await monitor.track_channel(channel.id)
+        
         schedule_delete(message, 3)       # Повідомлення юзера
         schedule_delete(thinking_msg, 5)  # Відповідь бота
         

@@ -65,7 +65,7 @@ class ChannelMonitor:
         try:
             from database.models import UserSubscription
             async with AsyncSessionLocal() as session:
-                # Вибираємо лише ті канали, у яких є підписники
+                # Вибираємо лише ті канали, у яких є підписники та які активні
                 query = (
                     select(Channel)
                     .join(UserSubscription, Channel.id == UserSubscription.channel_id)
@@ -79,23 +79,71 @@ class ChannelMonitor:
             self.username_to_id.clear()
             
             for ch in channels:
-                if ch.telegram_id:
-                    self.active_channels[ch.telegram_id] = ch.id
-                    # Telethon часто використовує -100... для каналів
-                    if ch.telegram_id > 0:
-                         self.active_channels[int(f"-100{ch.telegram_id}")] = ch.id
-                
-                if ch.username:
-                    clean_username = ch.username.lower().replace('@', '')
-                    self.username_to_id[clean_username] = ch.id
-                    # Попередньо кешуємо username для побудови URL
-                    if ch.telegram_id:
-                        self.chat_username_cache[ch.telegram_id] = clean_username
-                        self.chat_username_cache[int(f"-100{ch.telegram_id}")] = clean_username
+                self._add_to_cache(ch)
                     
             logger.info(f"Оновлено список каналів: {len(channels)} каналів (flood_wait: {self.flood_wait_count})")
         except Exception as e:
             logger.error(f"Помилка оновлення каналів: {e}")
+
+    def _add_to_cache(self, channel: Channel):
+        """Додає канал до внутрішнього кешу."""
+        if channel.telegram_id:
+            self.active_channels[channel.telegram_id] = channel.id
+            if channel.telegram_id > 0:
+                self.active_channels[int(f"-100{channel.telegram_id}")] = channel.id
+        
+        if channel.username:
+            clean_username = channel.username.lower().replace('@', '')
+            self.username_to_id[clean_username] = channel.id
+            if channel.telegram_id:
+                self.chat_username_cache[channel.telegram_id] = clean_username
+                self.chat_username_cache[int(f"-100{channel.telegram_id}")] = clean_username
+
+    async def track_channel(self, channel_id: int):
+        """
+        Примусово додає канал у відстеження та приєднується до нього, якщо потрібно.
+        Викликається хендлерами бота при додаванні нового каналу.
+        """
+        try:
+            async with AsyncSessionLocal() as session:
+                channel = await session.get(Channel, channel_id)
+                if not channel or not channel.is_active:
+                    return
+
+                # Оновлюємо кеш
+                self._add_to_cache(channel)
+                
+                # Спробуємо приєднатися до каналу через Telethon
+                if channel.username:
+                    await self.join_channel(channel.username)
+                elif channel.telegram_id:
+                    await self.join_channel(channel.telegram_id)
+                
+                logger.info(f"Channel tracked & joined: {channel.title} (@{channel.username})")
+        except Exception as e:
+            logger.error(f"Error tracking channel {channel_id}: {e}")
+
+    async def join_channel(self, identifier):
+        """Приєднується до каналу (Join), якщо клієнт ще не в ньому."""
+        try:
+            from telethon.tl.functions.channels import JoinChannelRequest
+            await self.client(JoinChannelRequest(identifier))
+            logger.info(f"Successfully joined channel: {identifier}")
+        except FloodWaitError as e:
+            logger.warning(f"⏳ FloodWait при спробі приєднатися до {identifier}: {e.seconds}с")
+            # Не блокуємо основний потік
+        except Exception as e:
+            logger.debug(f"Info: Already in channel or cannot join {identifier}: {e}")
+
+    async def run_monitoring(self):
+        """Запускає нескінченний цикл оновлення кешу каналів."""
+        if not self.client.is_connected():
+            await self.start()
+            
+        while True:
+            await self.refresh_channels()
+            # Оновлюємо кожні 60 секунд замість 300
+            await asyncio.sleep(60)
 
     async def is_ad(self, text: str, channel_id: int = None) -> bool:
         """

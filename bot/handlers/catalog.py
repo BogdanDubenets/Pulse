@@ -111,6 +111,11 @@ async def toggle_subscription(callback: CallbackQuery):
                 action_msg = f"✅ Підписано на {channel.title}"
             
             await session.commit()
+            
+            # Оновлюємо моніторинг, щоб він знав про нові підписки/відписки
+            from services.monitor import monitor
+            await monitor.refresh_channels()
+            
             category = channel.category
         
         logger.info(f"Subscription toggled: {action_msg}")

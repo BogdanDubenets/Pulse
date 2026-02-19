@@ -10,8 +10,8 @@ from bot.categories import CATEGORY_NAMES_FOR_AI, CATEGORY_MAP
 from loguru import logger
 
 
-# Ініціалізація нового клієнта Gemini
-client = genai.Client(api_key=config.GEMINI_API_KEY)
+# Ініціалізація клієнта Gemini з підтримкою v1beta (для text-embedding-004)
+client = genai.Client(api_key=config.GEMINI_API_KEY, http_options={'api_version': 'v1beta'})
 
 # Модель для генерації тексту
 MODEL_ID = "gemini-2.0-flash"
@@ -82,8 +82,8 @@ async def classify_channel(title: str, username: str | None, sample_text: str | 
 async def get_text_embedding(text: str) -> list[float] | None:
     """
     Генерує векторне представлення тексту (embedding) через Gemini.
-    Model: gemini-embedding-001
-    Output dimension: 768
+    Model: text-embedding-004
+    Output dimension: 3072
     """
     try:
         if not text:
@@ -92,11 +92,11 @@ async def get_text_embedding(text: str) -> list[float] | None:
         truncated_text = text[:8000]
         
         result = await client.aio.models.embed_content(
-            model="gemini-embedding-001",
+            model="text-embedding-004",
             contents=truncated_text,
             config=types.EmbedContentConfig(
                 task_type="CLUSTERING",
-                output_dimensionality=768,
+                output_dimensionality=3072,
             ),
         )
         
