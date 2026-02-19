@@ -11,7 +11,7 @@ from loguru import logger
 
 
 # Ініціалізація клієнта Gemini з підтримкою v1beta (для text-embedding-004)
-client = genai.Client(api_key=config.GEMINI_API_KEY, http_options={'api_version': 'v1beta'})
+client = genai.Client(api_key=config.GEMINI_API_KEY)
 
 # Модель для генерації тексту
 MODEL_ID = "gemini-2.0-flash"
