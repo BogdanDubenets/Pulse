@@ -15,9 +15,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Копіювання коду проекту
 COPY . .
 
-# Експонуємо порт для API
+# Встановлюємо PYTHONPATH, щоб імпорти працювали правильно
+ENV PYTHONPATH=/app
+
+# Експонуємо порт для API (Railway автоматично підставить PORT)
 EXPOSE 8000
 
-# За замовчуванням запускаємо API (Render Web Service)
-# Для бота (Background Worker) команда буде перевизначена в render.yaml
-CMD ["python", "api/main.py"]
+# За замовчуванням запускаємо API через uvicorn
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
