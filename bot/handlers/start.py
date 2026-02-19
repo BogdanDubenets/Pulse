@@ -14,15 +14,21 @@ def main_keyboard():
     """Головна клавіатура бота"""
     kb = InlineKeyboardBuilder()
     
-    # Додаємо кнопку WebApp тільки якщо налаштовано HTTPS
-    if config.WEBAPP_URL and config.WEBAPP_URL.startswith("https"):
-        kb.button(text="📱 Відкрити Pulse", web_app=WebAppInfo(url=config.WEBAPP_URL))
+    # Додаємо кнопку WebApp
+    if config.WEBAPP_URL:
+        # Для Telegram WebApp потрібен HTTPS, але для тестів може бути HTTP (з попередженням)
+        url = config.WEBAPP_URL
+        if not url.startswith("http"):
+            url = f"https://{url}"
+            
+        kb.button(text="📱 Відкрити Pulse", web_app=WebAppInfo(url=url))
     
     kb.button(text="📋 Мої канали", callback_data="my_channels")
     kb.button(text="➕ Додати канал", callback_data="onboarding:add")
     kb.button(text="❓ Допомога", callback_data="onboarding:help")
     
-    if config.WEBAPP_URL and config.WEBAPP_URL.startswith("https"):
+    if config.WEBAPP_URL:
+        # Велика кнопка зверху (1), потім дві менші (2), потім одна (1)
         kb.adjust(1, 2, 1)
     else:
         kb.adjust(2, 1)
@@ -69,17 +75,7 @@ async def cmd_start(message: Message):
         language_code=user.language_code
     )
     
-    try:
         fn = user.first_name if user else "Друже"
-        
-        # 1. Відправляємо Reply-клавіатуру (кнопка під полем вводу)
-        # Ця кнопка залишиться назавжди
-        await message.answer(
-            "👇 <b>Кнопка швидкого доступу</b>", 
-            reply_markup=webapp_keyboard()
-        )
-        
-        # 2. Відправляємо Inline-меню (кнопки під повідомленням)
         await message.answer(welcome_text(fn), reply_markup=main_keyboard())
         logger.info(f"Start message sent to {user.id}")
     except Exception as e:
