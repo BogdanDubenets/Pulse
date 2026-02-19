@@ -27,7 +27,9 @@ export const BriefItem: React.FC<BriefItemProps> = ({ item }) => {
                                     <a target="_blank" rel="noopener noreferrer" {...props} />
                                 )
                             }}
+                        >
                             {item.summary || ''}
+                        </Markdown>
                     </div>
                 </div>
                 {item.url && (
