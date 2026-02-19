@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List, Optional
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, Time
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, Time, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from pgvector.sqlalchemy import Vector
 
@@ -54,6 +54,9 @@ class Story(Base):
 
 class Publication(Base):
     __tablename__ = "publications"
+    __table_args__ = (
+        UniqueConstraint("channel_id", "telegram_message_id", name="uq_publications_channel_msg"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     story_id: Mapped[Optional[int]] = mapped_column(ForeignKey("stories.id", ondelete="CASCADE"))

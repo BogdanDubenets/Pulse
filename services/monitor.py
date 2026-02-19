@@ -6,6 +6,7 @@ from config.settings import config
 from database.connection import AsyncSessionLocal
 from database.models import Channel, Publication
 from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 import asyncio
 from datetime import datetime, timedelta
 
@@ -341,27 +342,24 @@ class ChannelMonitor:
             url = f"https://t.me/{username}/{msg_id}" if username else None
 
             async with AsyncSessionLocal() as session:
-                # Дедуплікація
-                exists = await session.scalar(
-                    select(Publication).where(
-                        Publication.channel_id == channel_id, 
-                        Publication.telegram_message_id == msg_id
+                try:
+                    new_pub = Publication(
+                        channel_id=channel_id,
+                        telegram_message_id=msg_id,
+                        content=text,
+                        url=url,
+                        published_at=date,
+                        views=views
                     )
-                )
-                if exists: return
-
-                new_pub = Publication(
-                    channel_id=channel_id,
-                    telegram_message_id=msg_id,
-                    content=text,
-                    url=url,
-                    published_at=date,
-                    views=views
-                )
-                session.add(new_pub)
-                await session.commit()
-                await session.refresh(new_pub)
-                pub_id = new_pub.id
+                    session.add(new_pub)
+                    await session.commit()
+                    await session.refresh(new_pub)
+                    pub_id = new_pub.id
+                    logger.info(f"💾 Saved publication {msg_id} from channel {channel_id}")
+                except IntegrityError:
+                    await session.rollback()
+                    logger.debug(f"Publication {msg_id} already exists in channel {channel_id} (duplicate skipped)")
+                    return
             
             # Trigger Clustering (Async)
             from services.clustering import cluster_publication

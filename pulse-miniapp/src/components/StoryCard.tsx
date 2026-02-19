@@ -47,7 +47,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({ story, index }) => {
                             <div className="flex -space-x-2">
                                 {[...Array(Math.min(3, story.sources.length))].map((_, i) => (
                                     <div key={i} className="w-5 h-5 rounded-full bg-slate-700 border border-surface flex items-center justify-center text-[10px] text-slate-300 uppercase">
-                                        {story.sources[i][0]}
+                                        {story.sources[i].name[0]}
                                     </div>
                                 ))}
                             </div>
