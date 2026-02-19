@@ -7,6 +7,7 @@ from database.models import Channel, UserSubscription
 from sqlalchemy import select
 from loguru import logger
 from bot.utils import schedule_delete
+from database.users import upsert_user
 
 from bot.categories import THEMATIC_CATEGORIES, REGIONAL_CATEGORIES, AUTHOR_CATEGORIES
 from services.ai_service import classify_channel
@@ -33,6 +34,14 @@ async def handle_forward(message: Message):
         return
 
     logger.info(f"Forward from channel: {chat.title} (id={chat.id}) by user {message.from_user.id}")
+
+    # Реєстрація користувача (про всяк випадок, якщо пропустив /start)
+    await upsert_user(
+        user_id=message.from_user.id,
+        first_name=message.from_user.first_name,
+        username=message.from_user.username,
+        language_code=message.from_user.language_code
+    )
 
     try:
         async with AsyncSessionLocal() as session:
@@ -156,6 +165,14 @@ async def handle_channel_link(message: Message):
     username = match.group(1) or match.group(2)
     logger.info(f"Channel link detected: @{username} from user {message.from_user.id}")
     
+    # Реєстрація користувача
+    await upsert_user(
+        user_id=message.from_user.id,
+        first_name=message.from_user.first_name,
+        username=message.from_user.username,
+        language_code=message.from_user.language_code
+    )
+    
     try:
         # Перевіряємо чи канал вже є в базі
         async with AsyncSessionLocal() as session:
@@ -211,7 +228,7 @@ async def handle_channel_link(message: Message):
                 f"Перевірте правильність юзернейму або спробуйте переслати пост з каналу."
             )
             schedule_delete(message, 3)
-            schedule_delete(thinking_msg, 5)
+            schedule_delete(hint, 5)
             return
         
         # Перевіряємо що це канал, а не група або юзер
@@ -358,4 +375,3 @@ async def set_channel_category(callback: CallbackQuery):
     except Exception as e:
         logger.exception(f"ERROR in set_channel_category: {e}")
         await callback.answer(f"Помилка: {e}", show_alert=True)
-

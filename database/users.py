@@ -27,6 +27,7 @@ async def upsert_user(user_id: int, first_name: str = None, username: str = None
                 }
             )
             
+            logger.debug(f"Executing upsert for user {user_id} (stmt prepared)")
             await session.execute(stmt)
             await session.commit()
             logger.info(f"✅ Користувач {user_id} ({first_name}) успішно зареєстрований/оновлений у БД.")
