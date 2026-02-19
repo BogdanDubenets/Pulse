@@ -1,0 +1,16 @@
+.git
+.venv
+__pycache__
+*.pyc
+.env
+.agent
+.npm-cache
+.npm-global
+*.jpeg
+*.jpg
+*.png
+pulse_mini_app_part1.md
+pulse_mini_app_part2.md
+pulse_technical_specification.md
+telegram_news_bot_roadmap.md
+session/
