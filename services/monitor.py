@@ -5,9 +5,9 @@ from loguru import logger
 from config.settings import config
 from database.connection import AsyncSessionLocal
 from database.models import Channel, Publication
-from sqlalchemy import select
+from sqlalchemy import select, update
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import os
 
@@ -80,6 +80,14 @@ class ChannelMonitor:
             
             for ch in channels:
                 self._add_to_cache(ch)
+                
+                # Перевірка на необхідність сканування історії (якщо пройшло > 1 год або ніколи)
+                now = datetime.utcnow()
+                last = ch.last_scanned_at.replace(tzinfo=None) if ch.last_scanned_at else None
+                if not last or (now - last).total_seconds() > 3600:
+                    identifier = ch.username or ch.telegram_id
+                    if identifier:
+                        asyncio.create_task(self._scan_channel(ch.id, identifier))
                     
             logger.info(f"Оновлено список каналів: {len(channels)} каналів (flood_wait: {self.flood_wait_count})")
         except Exception as e:
@@ -114,10 +122,11 @@ class ChannelMonitor:
                 self._add_to_cache(channel)
                 
                 # Спробуємо приєднатися до каналу через Telethon
-                if channel.username:
-                    await self.join_channel(channel.username)
-                elif channel.telegram_id:
-                    await self.join_channel(channel.telegram_id)
+                identifier = channel.username or channel.telegram_id
+                if identifier:
+                    await self.join_channel(identifier)
+                    # Відразу скануємо історію для нового каналу
+                    asyncio.create_task(self._scan_channel(channel.id, identifier))
                 
                 logger.info(f"Channel tracked & joined: {channel.title} (@{channel.username})")
         except Exception as e:
@@ -134,6 +143,39 @@ class ChannelMonitor:
             # Не блокуємо основний потік
         except Exception as e:
             logger.debug(f"Info: Already in channel or cannot join {identifier}: {e}")
+
+    async def _scan_channel(self, channel_db_id: int, telegram_identifier: int | str, limit: int = 20):
+        """Сканує історію каналу для заповнення прогалин."""
+        try:
+            logger.info(f"Scanning history for channel {telegram_identifier} (limit={limit})")
+            
+            # Створюємо фейковий івент для save_and_cluster
+            class FakeEvent:
+                def __init__(self, msg, chat_id):
+                    self.message = msg
+                    self.chat_id = chat_id
+                    self.is_channel = True
+
+            async for message in self.client.iter_messages(telegram_identifier, limit=limit):
+                if not message.message:
+                    continue
+                
+                event = FakeEvent(message, telegram_identifier)
+                await self.save_and_cluster(event, channel_db_id)
+            
+            # Оновлюємо час останнього сканування в БД
+            async with AsyncSessionLocal() as session:
+                await session.execute(
+                    update(Channel)
+                    .where(Channel.id == channel_db_id)
+                    .values(last_scanned_at=datetime.utcnow())
+                )
+                await session.commit()
+                
+        except FloodWaitError as e:
+            logger.warning(f"⏳ FloodWait під час сканування {telegram_identifier}: {e.seconds}с")
+        except Exception as e:
+            logger.error(f"Помилка сканування каналу {telegram_identifier}: {e}")
 
 
     async def is_ad(self, text: str, channel_id: int = None) -> bool:
