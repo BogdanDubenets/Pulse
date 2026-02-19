@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     # App Settings
     LOG_LEVEL: str = "INFO"
     DIGEST_TIME: str = "20:00"
-    WEBAPP_URL: str = "http://localhost:5173"
+    WEBAPP_URL: Optional[str] = None
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
