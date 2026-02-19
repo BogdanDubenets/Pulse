@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import SecretStr
 
@@ -15,10 +16,10 @@ class Settings(BaseSettings):
     
     # AI Configuration
     GEMINI_API_KEY: str
-    OPENAI_API_KEY: str
+    OPENAI_API_KEY: Optional[str] = None
     
     # Redis Configuration
-    REDIS_URL: str
+    REDIS_URL: Optional[str] = "redis://localhost:6379/0"
     
     # App Settings
     LOG_LEVEL: str = "INFO"
