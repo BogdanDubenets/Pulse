@@ -1,8 +1,8 @@
 import os
 import asyncio
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text, NullPool
 from sqlalchemy.ext.asyncio import create_async_engine
-from database.connection import DATABASE_URL
+from config.settings import config
 from database.models import Base, Channel
 import sys
 from loguru import logger
@@ -22,17 +22,54 @@ async def migrate():
     logger.info("📡 Початок міграції в Supabase Cloud...")
     
     # 1. Створення структури
+    actual_url = CLOUD_URL
+    if "@" in actual_url:
+        from urllib.parse import quote_plus
+        prefix, rest = actual_url.split("://", 1)
+        auth, host_port_db = rest.rsplit("@", 1)
+        if ":" in auth:
+            user, password = auth.split(":", 1)
+            auth = f"{user}:{quote_plus(password)}"
+        actual_url = f"{prefix}://{auth}@{host_port_db}"
+
+    if "sslmode=require" in actual_url:
+        actual_url = actual_url.replace("sslmode=require", "ssl=require")
+    
+    masked_url = actual_url.split("@")[1] if "@" in actual_url else actual_url
+    logger.info(f"🔗 Спроба підключення до: {masked_url}")
+    
     try:
-        cloud_engine = create_async_engine(CLOUD_URL)
+        cloud_engine = create_async_engine(
+            actual_url, 
+            connect_args={
+                "statement_cache_size": 0,
+                "prepared_statement_cache_size": 0
+            },
+            poolclass=NullPool
+        )
         async with cloud_engine.begin() as conn:
-            # Активуємо pgvector якщо треба
             await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
-            # Створюємо таблиці
-            await Base.metadata.create_all(conn)
-        logger.info("✅ Структуру бази даних створено.")
+            await conn.run_sync(Base.metadata.create_all)
     except Exception as e:
-        logger.error(f"❌ Помилка при створенні структури: {e}")
-        return
+        if "Tenant or user not found" in str(e) and ":6543" in actual_url:
+            logger.warning("🔄 Помилка транзакційного пулера. Пробую сесійний пулер (порт 5432)...")
+            actual_url = actual_url.replace(":6543", ":5432")
+            cloud_engine = create_async_engine(
+                actual_url,
+                connect_args={
+                    "statement_cache_size": 0,
+                    "prepared_statement_cache_size": 0
+                },
+                poolclass=NullPool
+            )
+            async with cloud_engine.begin() as conn:
+                await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
+                await conn.run_sync(Base.metadata.create_all)
+        else:
+            logger.error(f"❌ Помилка при створенні структури: {e}")
+            return
+
+    logger.info("✅ Структуру бази даних створено.")
 
     # 2. Перенесення каналів (якщо локальна база не порожня)
     try:
