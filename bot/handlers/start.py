@@ -75,6 +75,7 @@ async def cmd_start(message: Message):
         language_code=user.language_code
     )
     
+    try:
         fn = user.first_name if user else "Друже"
         await message.answer(welcome_text(fn), reply_markup=main_keyboard())
         logger.info(f"Start message sent to {user.id}")
