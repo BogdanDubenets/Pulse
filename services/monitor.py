@@ -135,15 +135,6 @@ class ChannelMonitor:
         except Exception as e:
             logger.debug(f"Info: Already in channel or cannot join {identifier}: {e}")
 
-    async def run_monitoring(self):
-        """Запускає нескінченний цикл оновлення кешу каналів."""
-        if not self.client.is_connected():
-            await self.start()
-            
-        while True:
-            await self.refresh_channels()
-            # Оновлюємо кожні 60 секунд замість 300
-            await asyncio.sleep(60)
 
     async def is_ad(self, text: str, channel_id: int = None) -> bool:
         """
@@ -340,7 +331,8 @@ class ChannelMonitor:
     async def run_monitoring(self):
         """Підтримує клієнт активним та оновлює список каналів."""
         try:
-            await self.start()
+            if not self.client.is_connected():
+                await self.start()
         except FloodWaitError as e:
             logger.error(f"⏳ FloodWait при запуску: очікування {e.seconds}с...")
             self.flood_wait_count += 1
@@ -354,14 +346,10 @@ class ChannelMonitor:
         logger.info("Моніторинг (Event-Driven) запущено.")
         try:
             while True:
-                await asyncio.sleep(300)  # Оновлення списку каналів кожні 5 хв
-                try:
-                    await self.refresh_channels()
-                except FloodWaitError as e:
-                    logger.warning(f"⏳ FloodWait при refresh: {e.seconds}с")
-                    self.flood_wait_count += 1
-                    self.last_flood_wait = datetime.now()
-                    await asyncio.sleep(e.seconds)
+                # Оновлюємо список каналів (це автоматично оновить кеш для NewMessage)
+                await self.refresh_channels()
+                # Очікуємо 1 хвилину
+                await asyncio.sleep(60)
         except asyncio.CancelledError:
             logger.info("Моніторинг зупинено.")
             await self.stop()
