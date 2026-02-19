@@ -82,8 +82,8 @@ async def classify_channel(title: str, username: str | None, sample_text: str | 
 async def get_text_embedding(text: str) -> list[float] | None:
     """
     Генерує векторне представлення тексту (embedding) через Gemini.
-    Model: text-embedding-004
-    Output dimension: 3072
+    Model: gemini-embedding-001
+    Output dimension: 768
     """
     try:
         if not text:
@@ -92,11 +92,11 @@ async def get_text_embedding(text: str) -> list[float] | None:
         truncated_text = text[:8000]
         
         result = await client.aio.models.embed_content(
-            model="text-embedding-004",
+            model="gemini-embedding-001",
             contents=truncated_text,
             config=types.EmbedContentConfig(
                 task_type="CLUSTERING",
-                output_dimensionality=3072,
+                output_dimensionality=768,
             ),
         )
         
