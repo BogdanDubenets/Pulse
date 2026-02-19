@@ -97,15 +97,26 @@ class ChannelMonitor:
         """Додає канал до внутрішнього кешу."""
         if channel.telegram_id:
             self.active_channels[channel.telegram_id] = channel.id
-            if channel.telegram_id > 0:
-                self.active_channels[int(f"-100{channel.telegram_id}")] = channel.id
-        
-        if channel.username:
+            # Додаємо варіант з -100, якщо його ще немає
+            str_id = str(channel.telegram_id)
+            if not str_id.startswith("-100"):
+                try:
+                    prefixed_id = int(f"-100{channel.telegram_id}")
+                    self.active_channels[prefixed_id] = channel.id
+                except ValueError:
+                    pass
             clean_username = channel.username.lower().replace('@', '')
             self.username_to_id[clean_username] = channel.id
             if channel.telegram_id:
                 self.chat_username_cache[channel.telegram_id] = clean_username
-                self.chat_username_cache[int(f"-100{channel.telegram_id}")] = clean_username
+                # Також кешуємо для -100 версії, якщо ID позитивний
+                str_id = str(channel.telegram_id)
+                if not str_id.startswith("-100"):
+                     try:
+                        prefixed_id = int(f"-100{channel.telegram_id}")
+                        self.chat_username_cache[prefixed_id] = clean_username
+                     except ValueError:
+                        pass
 
     async def track_channel(self, channel_id: int):
         """

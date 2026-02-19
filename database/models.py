@@ -47,8 +47,8 @@ class Story(Base):
     last_updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     confidence_score: Mapped[float] = mapped_column(Float, default=0.0)
     status: Mapped[str] = mapped_column(String, default="pending")
-    # Gemini embedding-001 returns 3072 dimensions.
-    embedding_vector: Mapped[Optional[Vector]] = mapped_column(Vector(3072))
+    # Gemini embedding-001 returns 768 dimensions.
+    embedding_vector: Mapped[Optional[Vector]] = mapped_column(Vector(768))
 
     publications: Mapped[List["Publication"]] = relationship(back_populates="story")
 
