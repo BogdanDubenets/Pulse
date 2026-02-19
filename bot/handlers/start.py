@@ -5,6 +5,7 @@ from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from loguru import logger
 from config.settings import config
+from database.users import upsert_user
 
 router = Router()
 
@@ -44,11 +45,21 @@ def welcome_text(first_name: str) -> str:
 
 @router.message(Command("start"))
 async def cmd_start(message: Message):
-    logger.info(f"User {message.from_user.id} started the bot")
+    user = message.from_user
+    logger.info(f"User {user.id} started the bot")
+    
+    # Реєстрація/оновлення користувача в БД
+    await upsert_user(
+        user_id=user.id,
+        first_name=user.first_name,
+        username=user.username,
+        language_code=user.language_code
+    )
+    
     try:
-        fn = message.from_user.first_name if message.from_user else "Друже"
+        fn = user.first_name if user else "Друже"
         await message.answer(welcome_text(fn), reply_markup=main_keyboard())
-        logger.info(f"Start message sent to {message.from_user.id}")
+        logger.info(f"Start message sent to {user.id}")
     except Exception as e:
         logger.exception(f"FAIL in cmd_start: {e}")
         await message.answer("Сталася помилка. Спробуйте /start ще раз.")
