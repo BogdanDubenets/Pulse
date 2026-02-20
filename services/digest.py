@@ -79,7 +79,7 @@ async def get_user_digest_data(user_id: int, hours: int = 120, group_by: str = "
                 "sources": sources,
                 "url": primary_url,
                 "publications_count": len(pubs),
-                "timestamp": story.last_updated_at.isoformat() + "Z"
+                "timestamp": story.last_updated_at
             })
 
         # 3. Отримуємо "Інші новини" (Briefs)
@@ -118,8 +118,8 @@ async def get_user_digest_data(user_id: int, hours: int = 120, group_by: str = "
                 "category": b.category or "📰 Події",
                 "sources": [{"name": b.channel.title, "url": b.url}] if b.channel else [],
                 "url": b.url,
-                "time": b.published_at.isoformat() + "Z",
-                "timestamp": b.published_at.isoformat() + "Z"
+                "time": b.published_at,
+                "timestamp": b.published_at
             })
 
         # 4. Логіка сортування та групування
@@ -133,9 +133,10 @@ async def get_user_digest_data(user_id: int, hours: int = 120, group_by: str = "
             all_items.sort(key=lambda x: x["timestamp"], reverse=True)
             
             for item in all_items:
-                # В режимі часу ми вже маємо ISO в data["time"]
-                item["time"] = item["timestamp"]
-                item["data"]["time"] = item["time"]
+                # В режимі часу конвертуємо в ISO для фронтенда
+                iso_time = item["timestamp"].isoformat() + "Z"
+                item["time"] = iso_time
+                item["data"]["time"] = iso_time
                 # Вичищаємо тимчасові поля
                 if "timestamp" in item: del item["timestamp"]
                 if "timestamp" in item["data"]: del item["data"]["timestamp"]
@@ -163,8 +164,11 @@ async def get_user_digest_data(user_id: int, hours: int = 120, group_by: str = "
             for source, items in channel_groups.items():
                 items.sort(key=lambda x: x["timestamp"], reverse=True)
                 for item in items:
-                    item["time"] = item["timestamp"].strftime("%H:%M")
+                    iso_time = item["timestamp"].isoformat() + "Z"
+                    item["time"] = iso_time
+                    item["data"]["time"] = iso_time
                     if "timestamp" in item: del item["timestamp"]
+                    if "timestamp" in item["data"]: del item["data"]["timestamp"]
                 
                 final_channels[source] = {
                     "items": items[:2], # Ліміт 2 для головної
@@ -196,8 +200,11 @@ async def get_user_digest_data(user_id: int, hours: int = 120, group_by: str = "
             for cat, items in merged_categories.items():
                 items.sort(key=lambda x: x["timestamp"], reverse=True)
                 for item in items:
-                    item["time"] = item["timestamp"].strftime("%H:%M")
+                    iso_time = item["timestamp"].isoformat() + "Z"
+                    item["time"] = iso_time
+                    item["data"]["time"] = iso_time
                     if "timestamp" in item: del item["timestamp"]
+                    if "timestamp" in item["data"]: del item["data"]["timestamp"]
                 
                 final_categories[cat] = {
                     "items": items[:2],
