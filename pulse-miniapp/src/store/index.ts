@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { DigestResponse, StoryDetail } from '../types';
-import { apiClient } from '../api/client';
+import { apiClient, API_BASE_URL } from '../api/client';
 
 interface DigestState {
     digest: DigestResponse | null;
@@ -24,9 +24,11 @@ export const useDigestStore = create<DigestState>((set) => ({
 
             const response = await apiClient.get<DigestResponse>(`/digest/${userId}?${params.toString()}`);
             set({ digest: response.data, isLoading: false });
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to fetch digest:', error);
-            set({ error: 'Failed to load digest', isLoading: false });
+            const msg = error.response?.data?.detail || error.message || 'Unknown error';
+            window.alert('Digest Error: ' + msg + ' (URL: ' + API_BASE_URL + ')');
+            set({ error: 'Failed to load digest: ' + msg, isLoading: false });
         }
     },
 }));
