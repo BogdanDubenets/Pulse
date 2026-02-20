@@ -19,7 +19,7 @@ class ChannelMonitor:
         # Використовуємо StringSession для хмари (якщо є) або локальний файл
         if config.TELETHON_SESSION:
             session = StringSession(config.TELETHON_SESSION)
-            logger.info("Using StringSession for Telethon")
+            logger.info("✅ Using StringSession (Cloud Optimized)")
         else:
             # Переконуємось, що папка для сесії існує (для локальної розробки)
             session_path = 'session/pulse_monitor'
