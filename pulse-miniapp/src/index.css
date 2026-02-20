@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+.pulse-deployment-heartbeat-v1 {
+  color: red !important;
+}
+
 @theme {
   /* Pulse Brand — Dark Theme */
   --color-background: #1A1D2E;

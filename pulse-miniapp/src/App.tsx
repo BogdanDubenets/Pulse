@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { DigestPage } from './pages/DigestPage';
 import { StoryPage } from './pages/StoryPage';
 
+// Build verification: 6500037_v2_461874849
 function App() {
   return (
     <BrowserRouter>
