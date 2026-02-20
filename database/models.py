@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, Time, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -18,7 +18,7 @@ class Channel(Base):
     credibility_score: Mapped[float] = mapped_column(Float, default=0.5)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     last_scanned_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     publications: Mapped[List["Publication"]] = relationship(back_populates="channel")
 
@@ -34,7 +34,7 @@ class User(Base):
     morning_digest_time: Mapped[Optional[str]] = mapped_column(String, default="08:00") # "HH:MM"
     evening_digest_time: Mapped[Optional[str]] = mapped_column(String, default="20:00") # "HH:MM"
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 class Story(Base):
     __tablename__ = "stories"
@@ -43,8 +43,8 @@ class Story(Base):
     title: Mapped[Optional[str]] = mapped_column(Text)
     summary: Mapped[Optional[str]] = mapped_column(Text)
     category: Mapped[Optional[str]] = mapped_column(Text)
-    first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
-    last_updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    last_updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     confidence_score: Mapped[float] = mapped_column(Float, default=0.0)
     status: Mapped[str] = mapped_column(String, default="pending")
     # Gemini embedding-001 returns 768 dimensions.
@@ -68,7 +68,7 @@ class Publication(Base):
     published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     views: Mapped[int] = mapped_column(Integer, default=0)
     reactions: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     story: Mapped["Story"] = relationship(back_populates="publications")
     channel: Mapped["Channel"] = relationship(back_populates="publications")
@@ -80,4 +80,4 @@ class UserSubscription(Base):
     user_id: Mapped[int] = mapped_column(BigInteger, nullable=False) # Telegram User ID. Can be ForeignKey("users.id") but keeping loose for now to recognize existing data seamlessly
     # user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE")) 
     channel_id: Mapped[Optional[int]] = mapped_column(ForeignKey("channels.id", ondelete="CASCADE"))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

@@ -3,7 +3,7 @@ from sqlalchemy.dialects.postgresql import insert
 from database.connection import AsyncSessionLocal
 from database.models import User
 from loguru import logger
-from datetime import datetime
+from datetime import datetime, timezone
 
 async def upsert_user(user_id: int, first_name: str = None, username: str = None, language_code: str = "uk"):
     """
@@ -17,7 +17,7 @@ async def upsert_user(user_id: int, first_name: str = None, username: str = None
                 first_name=first_name,
                 username=username,
                 language_code=language_code,
-                created_at=datetime.utcnow()
+                created_at=datetime.now(timezone.utc)
             ).on_conflict_do_update(
                 index_elements=[User.id],
                 set_={

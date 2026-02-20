@@ -8,7 +8,7 @@ from database.models import Channel, Publication
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import os
 
@@ -83,9 +83,9 @@ class ChannelMonitor:
                 self._add_to_cache(ch)
                 
                 # Перевірка на необхідність сканування історії (якщо пройшло > 1 год або ніколи)
-                now = datetime.utcnow()
+                time_threshold = datetime.now(timezone.utc) - timedelta(hours=24)
                 last = ch.last_scanned_at.replace(tzinfo=None) if ch.last_scanned_at else None
-                if not last or (now - last).total_seconds() > 3600:
+                if not last or (datetime.now(timezone.utc) - last.replace(tzinfo=timezone.utc)).total_seconds() > 3600:
                     identifier = ch.username or ch.telegram_id
                     if identifier:
                         asyncio.create_task(self._scan_channel(ch.id, identifier))
@@ -180,7 +180,7 @@ class ChannelMonitor:
                 await session.execute(
                     update(Channel)
                     .where(Channel.id == channel_db_id)
-                    .values(last_scanned_at=datetime.utcnow())
+                    .values(last_scanned_at=datetime.now(timezone.utc))
                 )
                 await session.commit()
                 
@@ -207,7 +207,7 @@ class ChannelMonitor:
             "безкоштовно", "дарма", "акція", "розіграш", "айфон",
             "інтим", "бутик", "шоп", "18+", "🔞", "замовити",
             "магазин", "знижк", "промокод", "ловіть", "тільки сьогодні",
-            "t.me/+", "t.me/joinchat"
+            "t.me/+", "t.me/joinchat", "#промо"
         ]
 
         # Контекстні винятки
@@ -300,8 +300,8 @@ class ChannelMonitor:
     async def handle_new_message(self, event):
         """Обробник нових повідомлень з обробкою FloodWait."""
         try:
-            # Тільки канали
-            if not event.is_channel:
+            text = event.message.message
+            if not text:
                 return
 
             # Отримуємо інфо з кешу (мінімум API-запитів)
@@ -310,14 +310,7 @@ class ChannelMonitor:
             if not db_channel_id:
                 return
 
-            text = event.message.message
-            if await self.is_ad(text, channel_id=db_channel_id):
-                logger.info(f"🚫 Реклама (context-aware), пропускаємо: {chat_title}")
-                return
-
-            logger.info(f"📩 Нове повідомлення: {chat_title} ({event.chat_id})")
-            
-            # Обробка
+            # Обробка (фільтрація реклами тепер всередині save_and_cluster)
             await self.save_and_cluster(event, db_channel_id, chat_username)
             
         except FloodWaitError as e:
@@ -332,6 +325,11 @@ class ChannelMonitor:
         try:
             text = event.message.message
             if not text: return
+            
+            # Перевірка на рекламу (для всіх типів збору: real-time та scan)
+            if await self.is_ad(text, channel_id=channel_id):
+                logger.info(f"🚫 Реклама заблокована для каналу {channel_id}")
+                return
             
             msg_id = event.message.id
             date = event.message.date

@@ -29,7 +29,8 @@ async def get_user_digest_data(user_id: int, hours: int = 120, group_by: str = "
         if not user_channel_ids:
             return {"error": "no_subscriptions"}
 
-        time_threshold = datetime.utcnow() - timedelta(hours=hours)
+        from datetime import timezone
+        time_threshold = datetime.now(timezone.utc) - timedelta(hours=hours)
 
         # 2. Отримуємо Stories
         stmt_stories = (
@@ -78,7 +79,7 @@ async def get_user_digest_data(user_id: int, hours: int = 120, group_by: str = "
                 "sources": sources,
                 "url": primary_url,
                 "publications_count": len(pubs),
-                "timestamp": story.last_updated_at
+                "timestamp": story.last_updated_at.isoformat() + "Z"
             })
 
         # 3. Отримуємо "Інші новини" (Briefs)
@@ -117,8 +118,8 @@ async def get_user_digest_data(user_id: int, hours: int = 120, group_by: str = "
                 "category": b.category or "📰 Події",
                 "sources": [{"name": b.channel.title, "url": b.url}] if b.channel else [],
                 "url": b.url,
-                "time": b.published_at.strftime("%H:%M"),
-                "timestamp": b.published_at
+                "time": b.published_at.isoformat() + "Z",
+                "timestamp": b.published_at.isoformat() + "Z"
             })
 
         # 4. Логіка сортування та групування
@@ -132,9 +133,11 @@ async def get_user_digest_data(user_id: int, hours: int = 120, group_by: str = "
             all_items.sort(key=lambda x: x["timestamp"], reverse=True)
             
             for item in all_items:
-                item["time"] = item["timestamp"].strftime("%H:%M")
+                # В режимі часу ми вже маємо ISO в data["time"]
+                item["time"] = item["timestamp"]
                 item["data"]["time"] = item["time"]
-                del item["timestamp"]
+                # Вичищаємо тимчасові поля
+                if "timestamp" in item: del item["timestamp"]
                 if "timestamp" in item["data"]: del item["data"]["timestamp"]
 
             return {

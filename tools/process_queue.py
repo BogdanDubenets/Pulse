@@ -10,13 +10,21 @@ async def process_stuck_publications():
     logger.info("Starting manual queue processing...")
     
     async with AsyncSessionLocal() as session:
-        # Шукаємо всі публікації без story_id
-        query = select(Publication).where(Publication.story_id == None)
+        from datetime import datetime, timedelta
+        time_limit = datetime.utcnow() - timedelta(hours=48)
+        
+        # Шукаємо останні публікації без story_id
+        query = (
+            select(Publication)
+            .where(Publication.story_id == None, Publication.published_at >= time_limit)
+            .order_by(Publication.published_at.desc())
+            .limit(200)
+        )
         result = await session.execute(query)
         pubs = result.scalars().all()
         
         if not pubs:
-            logger.info("No stuck publications found.")
+            logger.info("No stuck publications found in last 48h.")
             return
 
         logger.info(f"Found {len(pubs)} publications to process.")
@@ -24,14 +32,13 @@ async def process_stuck_publications():
         for pub in pubs:
             logger.info(f"Processing pub ID {pub.id}: {pub.content[:50]}...")
             try:
-                # Викликаємо існуючу логіку кластеризації
                 await cluster_publication(pub.id)
                 logger.info(f"✅ Successfully processed pub {pub.id}")
             except Exception as e:
                 logger.error(f"❌ Failed to process pub {pub.id}: {e}")
             
-            # Невелике очікування, щоб не перевантажити API
-            await asyncio.sleep(2)
+            # Мінімальне очікування
+            await asyncio.sleep(0.1)
 
     logger.info("Manual processing completed.")
 

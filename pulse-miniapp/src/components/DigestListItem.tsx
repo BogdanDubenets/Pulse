@@ -22,7 +22,7 @@ export const DigestListItem: React.FC<DigestListItemProps> = ({
                 <div className="flex items-baseline gap-2">
                     {time && (
                         <span className="text-xs font-medium text-primary shrink-0">
-                            {time}
+                            {new Date(time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                     )}
                     <h3 className="text-sm font-medium text-text-primary leading-snug line-clamp-2">
