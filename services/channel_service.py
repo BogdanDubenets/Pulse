@@ -18,13 +18,36 @@ class ChannelService:
         Returns: (Channel object, error_message)
         """
         # Очищення ідентифікатора
-        username = identifier.strip().replace('@', '').split('/')[-1]
+        clean_id = identifier.strip().replace('@', '').split('/')[-1]
         
+        # Перевіряємо, чи це числовий ID (може бути з мінусом)
+        is_numeric = False
+        try:
+            int_id = int(clean_id)
+            is_numeric = True
+        except ValueError:
+            int_id = None
+
         async with AsyncSessionLocal() as session:
-            # 1. Шукаємо в базі за username
-            result = await session.execute(
-                select(Channel).where(Channel.username.ilike(username))
-            )
+            # 1. Шукаємо в базі
+            if is_numeric:
+                # Якщо це ID, шукаємо за telegram_id
+                # Telethon ID зазвичай позитивні, а в Bot API - з -100. Приводимо до формату Telethon.
+                search_id = int_id
+                if str(search_id).startswith("-100"):
+                    search_id = int(str(search_id)[4:])
+                elif str(search_id).startswith("-"):
+                    search_id = int(str(search_id)[1:])
+                
+                result = await session.execute(
+                    select(Channel).where(Channel.telegram_id == search_id)
+                )
+            else:
+                # Якщо це username, шукаємо за username
+                result = await session.execute(
+                    select(Channel).where(Channel.username.ilike(clean_id))
+                )
+            
             channel = result.scalar_one_or_none()
             if channel:
                 return channel, None
@@ -34,7 +57,9 @@ class ChannelService:
                 if not monitor.client.is_connected():
                     await monitor.start()
                 
-                entity = await monitor.client.get_entity(username)
+                # Для get_entity краще передавати int якщо це число
+                to_resolve = int_id if is_numeric else clean_id
+                entity = await monitor.client.get_entity(to_resolve)
                 
                 if not isinstance(entity, TelethonChannel):
                     return None, f"'{identifier}' не є каналом (можливо це група або користувач)"
@@ -54,7 +79,7 @@ class ChannelService:
                 # 4. Створюємо новий канал з ГАРАНТОВАНО правильними даними
                 new_channel = Channel(
                     telegram_id=entity.id,
-                    username=username,
+                    username=getattr(entity, 'username', None) or clean_id if not is_numeric else getattr(entity, 'username', None),
                     title=entity.title,
                     category="📰 Події", # Тимчасова
                     is_active=True

@@ -1,4 +1,5 @@
 import re
+import asyncio
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -47,7 +48,9 @@ async def handle_forward(message: Message):
 
         async with AsyncSessionLocal() as session:
             # Використовуємо сервіс для валідації та отримання/створення каналу
-            channel, error = await channel_service.get_or_create_channel(str(chat.id))
+            # Пріоритет юзернейму, бо він надійніший для резолвінгу
+            identifier = f"@{chat.username}" if chat.username else str(chat.id)
+            channel, error = await channel_service.get_or_create_channel(identifier)
             
             if error or not channel:
                 await message.reply(f"❌ Помилка: {error}")
