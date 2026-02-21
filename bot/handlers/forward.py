@@ -69,6 +69,8 @@ async def handle_forward(message: Message):
                 ))
                 await session.commit()
                 status = "\n\n✅ Підписано!"
+                # Запускаємо миттєвий збір новин через монітор
+                asyncio.create_task(monitor.track_channel(channel.id))
             else:
                 status = "\n\n✅ Ви вже підписані"
             
@@ -157,6 +159,8 @@ async def handle_channel_link(message: Message):
                 ))
                 await session.commit()
                 status = "✅ Підписано!"
+                # Запускаємо миттєвий збір новин через монітор
+                asyncio.create_task(monitor.track_channel(channel.id))
             else:
                 status = "✅ Ви вже підписані"
         

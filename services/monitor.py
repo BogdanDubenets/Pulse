@@ -137,8 +137,8 @@ class ChannelMonitor:
                 identifier = channel.username or channel.telegram_id
                 if identifier:
                     await self.join_channel(identifier)
-                    # Відразу скануємо історію для нового каналу
-                    asyncio.create_task(self._scan_channel(channel.id, identifier))
+                    # Відразу скануємо історію за останні 12 годин для нового каналу
+                    asyncio.create_task(self._scan_channel(channel.id, identifier, hours=12))
                 
                 logger.info(f"Channel tracked & joined: {channel.title} (@{channel.username})")
         except Exception as e:
@@ -156,11 +156,19 @@ class ChannelMonitor:
         except Exception as e:
             logger.debug(f"Info: Already in channel or cannot join {identifier}: {e}")
 
-    async def _scan_channel(self, channel_db_id: int, telegram_identifier: int | str, limit: int = 20):
-        """Сканує історію каналу для заповнення прогалин."""
+    async def _scan_channel(self, channel_db_id: int, telegram_identifier: int | str, limit: int = 100, hours: int = None):
+        """
+        Сканує історію каналу. 
+        Якщо вказано hours, збирає всі повідомлення за цей період.
+        """
         try:
-            logger.info(f"Scanning history for channel {telegram_identifier} (limit={limit})")
+            time_str = f"last {hours}h" if hours else f"limit={limit}"
+            logger.info(f"Scanning history for channel {telegram_identifier} ({time_str})")
             
+            offset_date = None
+            if hours:
+                offset_date = datetime.now(timezone.utc) - timedelta(hours=hours)
+
             # Створюємо фейковий івент для save_and_cluster
             class FakeEvent:
                 def __init__(self, msg, chat_id):
@@ -168,9 +176,12 @@ class ChannelMonitor:
                     self.chat_id = chat_id
                     self.is_channel = True
 
-            async for message in self.client.iter_messages(telegram_identifier, limit=limit):
+            async for message in self.client.iter_messages(telegram_identifier, limit=limit, offset_date=offset_date, reverse=True):
                 if not message.message:
                     continue
+                
+                # Якщо ми йдемо в reverse=True, то повідомлення будуть від старих до нових
+                # Якщо ми збираємо за часом, iter_messages сам зупиниться на offset_date
                 
                 event = FakeEvent(message, telegram_identifier)
                 await self.save_and_cluster(event, channel_db_id)
