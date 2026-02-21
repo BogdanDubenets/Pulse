@@ -57,7 +57,10 @@ async def cluster_publication(publication_id: int):
         if story_to_link:
             publication.story_id = story_to_link.id
             publication.category = story_to_link.category # Inherit category
-            story_to_link.last_updated_at = datetime.now(timezone.utc)
+            
+            # Оновлюємо час сюжету на час найновішої публікації
+            if publication.published_at > story_to_link.last_updated_at:
+                story_to_link.last_updated_at = publication.published_at
             status = "linked"
         else:
             # Створюємо нову історію
@@ -74,8 +77,8 @@ async def cluster_publication(publication_id: int):
                 summary=meta.get("summary", ""),
                 category=full_cat,
                 embedding_vector=embedding,
-                first_seen_at=datetime.now(timezone.utc),
-                last_updated_at=datetime.now(timezone.utc),
+                first_seen_at=publication.published_at, # Використовуємо час публікації
+                last_updated_at=publication.published_at,
                 status="active"
             )
             session.add(new_story)
