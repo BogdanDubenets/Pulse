@@ -16,7 +16,14 @@ def clean_markdown(text: str) -> str:
     text = text.replace("**", "")
     return text.strip()
 
-async def get_user_digest_data(user_id: int, hours: int = 120, group_by: str = "category", pinned_categories: list[str] = None) -> dict:
+async def get_user_digest_data(
+    user_id: int, 
+    hours: int = 120, 
+    group_by: str = "category", 
+    pinned_categories: list[str] = None,
+    limit: int = 20,
+    offset: int = 0
+) -> dict:
     """
     Повертає структуровані дані дайджесту для Mini App / API.
     """
@@ -43,7 +50,8 @@ async def get_user_digest_data(user_id: int, hours: int = 120, group_by: str = "
             )
             .distinct()
             .order_by(desc(Story.last_updated_at), desc(Story.confidence_score))
-            .limit(50)
+            .offset(offset)
+            .limit(limit)
         )
         
         result_stories = await session.execute(stmt_stories)
@@ -95,7 +103,8 @@ async def get_user_digest_data(user_id: int, hours: int = 120, group_by: str = "
                 (Publication.story_id.notin_(story_ids)) | (Publication.story_id.is_(None))
             )
             .order_by(desc(Publication.published_at))
-            .limit(100)
+            .offset(offset)
+            .limit(limit)
         )
         
         res_briefs = await session.execute(stmt_briefs)
@@ -143,6 +152,7 @@ async def get_user_digest_data(user_id: int, hours: int = 120, group_by: str = "
 
             return {
                 "items": all_items,
+                "has_more": len(formatted_stories) == limit or len(formatted_briefs) == limit,
                 "stats": {"total": len(all_items), "mode": "time"}
             }
 
@@ -181,6 +191,7 @@ async def get_user_digest_data(user_id: int, hours: int = 120, group_by: str = "
 
             return {
                 "channels": sorted_channels,
+                "has_more": len(formatted_stories) == limit or len(formatted_briefs) == limit,
                 "stats": {"total_channels": len(sorted_channels), "mode": "channel"}
             }
 
@@ -222,6 +233,7 @@ async def get_user_digest_data(user_id: int, hours: int = 120, group_by: str = "
 
             return {
                 "categories": sorted_categories,
+                "has_more": len(formatted_stories) == limit or len(formatted_briefs) == limit,
                 "stats": {
                     "total_stories": len(formatted_stories), 
                     "total_briefs": len(formatted_briefs), 

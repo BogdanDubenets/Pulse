@@ -51,6 +51,8 @@ export interface DigestResponse {
     // Mode: time
     items?: DigestItem[];
 
+    has_more: boolean;
+
     stats: {
         total_stories?: number;
         total_briefs?: number;

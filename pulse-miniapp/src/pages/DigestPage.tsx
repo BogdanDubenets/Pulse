@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useDigestStore } from '../store';
 import { Layout } from '../components/Layout';
 import { Loader2, X, ExternalLink, LayoutGrid, Clock, Pin, Hash } from 'lucide-react';
@@ -13,8 +13,10 @@ export const DigestPage: React.FC = () => {
     const tgUserId = webApp?.initDataUnsafe?.user?.id;
     const userId = tgUserId || 461874849; // Fallback на ID Богдана, якщо не в Telegram
 
-    const { digest, isLoading, error, fetchDigest } = useDigestStore();
+    const { digest, isLoading, isRefreshing, error, fetchDigest } = useDigestStore();
     const [selectedItem, setSelectedItem] = useState<Story | BriefNews | null>(null);
+    const [offset, setOffset] = useState(0);
+    const observer = useRef<IntersectionObserver | null>(null);
 
     // UI State: 'category', 'time', or 'channel'
     const [groupBy, setGroupBy] = useState<'category' | 'time' | 'channel'>(
@@ -25,9 +27,33 @@ export const DigestPage: React.FC = () => {
     );
 
     useEffect(() => {
+        setOffset(0); // Скидаємо офсет при зміні фільтрів
         fetchDigest(userId, groupBy, pinnedCats.join(','));
         localStorage.setItem('pulse_group_by', groupBy);
     }, [fetchDigest, userId, groupBy, pinnedCats]);
+
+    // Функція для завантаження наступної порції
+    const loadMore = useCallback(() => {
+        if (!digest?.has_more || isLoading || isRefreshing) return;
+
+        const nextOffset = offset + 20;
+        setOffset(nextOffset);
+        fetchDigest(userId, groupBy, pinnedCats.join(','), nextOffset);
+    }, [digest?.has_more, isLoading, isRefreshing, offset, fetchDigest, userId, groupBy, pinnedCats]);
+
+    // Налаштування Observer
+    const lastElementRef = useCallback((node: HTMLDivElement | null) => {
+        if (isLoading || isRefreshing) return;
+        if (observer.current) observer.current.disconnect();
+
+        observer.current = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting && digest?.has_more) {
+                loadMore();
+            }
+        });
+
+        if (node) observer.current.observe(node);
+    }, [isLoading, isRefreshing, digest?.has_more, loadMore]);
 
     const togglePin = (cat: string) => {
         const newPinned = pinnedCats.includes(cat)
@@ -110,7 +136,7 @@ export const DigestPage: React.FC = () => {
             </header>
 
             {groupBy === 'category' ? (
-                <div className="pb-20">
+                <div className="pb-4">
                     {Object.entries(categories).map(([name, data]) => (
                         <div key={name} className="relative group">
                             <button
@@ -131,7 +157,7 @@ export const DigestPage: React.FC = () => {
                     ))}
                 </div>
             ) : groupBy === 'channel' ? (
-                <div className="pb-20">
+                <div className="pb-4">
                     {Object.entries(channels).map(([name, data]) => (
                         <CategorySectionUnified
                             key={name}
@@ -145,7 +171,7 @@ export const DigestPage: React.FC = () => {
                     ))}
                 </div>
             ) : (
-                <section className="mb-20">
+                <section className="mb-4">
                     <div className="bg-surface backdrop-blur-md border border-border rounded-2xl overflow-hidden shadow-xl">
                         {items.map((item) => (
                             <DigestListItem
@@ -156,8 +182,24 @@ export const DigestPage: React.FC = () => {
                             />
                         ))}
                     </div>
+
                 </section>
             )}
+
+            {/* Загальний елемент для Infinite Scroll */}
+            <div ref={lastElementRef} className="h-24 flex items-center justify-center mb-24">
+                {isRefreshing && (
+                    <div className="flex flex-col items-center gap-2">
+                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                        <span className="text-[10px] text-text-muted font-bold uppercase tracking-widest">Завантаження...</span>
+                    </div>
+                )}
+                {!digest?.has_more && (items.length > 0 || Object.keys(categories).length > 0) && (
+                    <p className="text-[10px] text-text-muted uppercase tracking-widest font-bold bg-surface/50 px-4 py-2 rounded-full border border-border">
+                        ✨ Це всі новини на сьогодні
+                    </p>
+                )}
+            </div>
 
             {selectedItem && (
                 <div className="fixed inset-0 z-50 flex items-end justify-center px-4 pb-4 animate-in fade-in duration-300">

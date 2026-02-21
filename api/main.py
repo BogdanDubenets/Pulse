@@ -63,6 +63,7 @@ class DigestResponse(BaseModel):
     # Time mode fields
     items: Optional[List[dict]] = None
     
+    has_more: bool = False
     stats: dict
 
 class PublicationDetail(BaseModel):
@@ -90,7 +91,9 @@ async def health_check():
 async def get_digest(
     user_id: int, 
     group_by: str = "category", 
-    pinned: Optional[str] = None
+    pinned: Optional[str] = None,
+    limit: int = 20,
+    offset: int = 0
 ):
     """
     Get user digest (Top Stories + Briefs) with sorting options
@@ -99,9 +102,11 @@ async def get_digest(
         pinned_list = pinned.split(",") if pinned else []
         data = await get_user_digest_data(
             user_id, 
-            hours=24, 
+            hours=120, 
             group_by=group_by, 
-            pinned_categories=pinned_list
+            pinned_categories=pinned_list,
+            limit=limit,
+            offset=offset
         )
         if "error" in data:
             raise HTTPException(status_code=404, detail=data["error"])
