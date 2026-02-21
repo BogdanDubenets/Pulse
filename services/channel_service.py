@@ -48,7 +48,7 @@ class ChannelService:
                     select(Channel).where(Channel.username.ilike(clean_id))
                 )
             
-            channel = result.scalar_one_or_none()
+            channel = result.scalars().first()
             if channel:
                 return channel, None
 
