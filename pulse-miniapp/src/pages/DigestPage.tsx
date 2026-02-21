@@ -63,8 +63,14 @@ export const DigestPage: React.FC = () => {
         localStorage.setItem('pulse_pinned_cats', JSON.stringify(newPinned));
     };
 
-    const handleMoreClick = () => {
-        setGroupBy('time');
+    const handleMoreClick = (title: string) => {
+        // При кліку на "Більше у розділі" ми хочемо показати тільки цей розділ.
+        // Це можна зробити, переключившись у режим 'category'/'channel' та залишивши тільки один 'pinned' елемент
+        setPinnedCats([title]);
+        setGroupBy(groupBy === 'channel' ? 'channel' : 'category');
+        localStorage.setItem('pulse_pinned_cats', JSON.stringify([title]));
+        // Скролимо вгору, щоб користувач бачив результат
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     if (isLoading && !digest) {
@@ -151,7 +157,7 @@ export const DigestPage: React.FC = () => {
                                 hasMore={data.has_more}
                                 totalCount={data.total_count}
                                 onItemClick={setSelectedItem}
-                                onMoreClick={handleMoreClick}
+                                onMoreClick={() => handleMoreClick(name)}
                             />
                         </div>
                     ))}
@@ -166,7 +172,7 @@ export const DigestPage: React.FC = () => {
                             hasMore={data.has_more}
                             totalCount={data.total_count}
                             onItemClick={setSelectedItem}
-                            onMoreClick={handleMoreClick}
+                            onMoreClick={() => handleMoreClick(name)}
                         />
                     ))}
                 </div>

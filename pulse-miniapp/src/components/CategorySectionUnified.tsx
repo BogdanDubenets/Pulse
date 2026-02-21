@@ -9,7 +9,7 @@ interface CategorySectionUnifiedProps {
     hasMore: boolean;
     totalCount: number;
     onItemClick: (item: Story | BriefNews) => void;
-    onMoreClick: () => void;
+    onMoreClick: (title: string) => void;
 }
 
 export const CategorySectionUnified: React.FC<CategorySectionUnifiedProps> = ({
@@ -51,7 +51,7 @@ export const CategorySectionUnified: React.FC<CategorySectionUnifiedProps> = ({
 
             {hasMore && (
                 <button
-                    onClick={onMoreClick}
+                    onClick={() => onMoreClick(title)}
                     className="mt-3 w-full py-2.5 flex items-center justify-center gap-2 text-xs font-semibold text-primary bg-primary/5 hover:bg-primary/10 rounded-xl border border-primary/10 transition-all active:scale-[0.98]"
                 >
                     Більше у розділі "{title}"
