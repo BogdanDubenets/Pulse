@@ -12,6 +12,7 @@ from database.users import upsert_user
 from bot.categories import THEMATIC_CATEGORIES, REGIONAL_CATEGORIES, AUTHOR_CATEGORIES
 from services.ai_service import classify_channel
 from services.monitor import monitor
+from services.channel_service import channel_service
 
 router = Router()
 
@@ -43,104 +44,58 @@ async def handle_forward(message: Message):
         language_code=message.from_user.language_code
     )
 
-    try:
-        async with AsyncSessionLocal() as session:
-            # Шукаємо канал у базі
-            result = await session.execute(
-                select(Channel).where(Channel.telegram_id == chat.id)
-            )
-            channel = result.scalar_one_or_none()
-            
-            if channel:
-                # Канал вже є — перевіряємо підписку
-                sub_result = await session.execute(
-                    select(UserSubscription).where(
-                        UserSubscription.user_id == message.from_user.id,
-                        UserSubscription.channel_id == channel.id
-                    )
-                )
-                subscription = sub_result.scalar_one_or_none()
-                
-                if not subscription:
-                    # Автопідписка
-                    session.add(UserSubscription(
-                        user_id=message.from_user.id,
-                        channel_id=channel.id
-                    ))
-                    await session.commit()
-                    status = "\n\n✅ Підписано!"
-                else:
-                    status = "\n\n✅ Ви вже підписані"
-                
-                bot_msg = await message.answer(
-                    f"📺 <b>{channel.title}</b>"
-                    f"{status}"
-                )
-                schedule_delete(message, 3)
-                schedule_delete(bot_msg, 5)
-                return
-            
-            # Канал новий — створюємо з тимчасовою категорією
-            channel = Channel(
-                telegram_id=chat.id,
-                username=chat.username,
-                title=chat.title,
-                category="📰 Події",  # Тимчасова, поки AI не визначить
-                is_active=True
-            )
-            session.add(channel)
-            await session.commit()
-            await session.refresh(channel)
-            logger.info(f"New channel created: {chat.title} (db_id={channel.id})")
-
-        # Показуємо повідомлення "аналізую..."
-        thinking_msg = await message.answer(
-            f"🆕 <b>Новий канал знайдено!</b>\n\n"
-            f"📺 <b>{chat.title}</b>\n"
-            f"🤖 <i>AI аналізує категорію...</i>"
-        )
-
-        # AI класифікація через Gemini
-        sample_text = message.text or message.caption or ""
-        ai_category = await classify_channel(
-            title=chat.title,
-            username=chat.username,
-            sample_text=sample_text
-        )
+    async with AsyncSessionLocal() as session:
+        # Використовуємо сервіс для валідації та отримання/створення каналу
+        channel, error = await channel_service.get_or_create_channel(str(chat.id))
         
-        logger.info(f"AI classified '{chat.title}' → '{ai_category}'")
+        if error or not channel:
+            await message.reply(f"❌ Помилка: {error}")
+            return
 
-        # Зберігаємо категорію в БД
-        async with AsyncSessionLocal() as session:
-            channel = await session.get(Channel, channel.id)
-            channel.category = ai_category
-            
-            # Автоматично підписуємо
-            sub_result = await session.execute(
-                select(UserSubscription).where(
-                    UserSubscription.user_id == message.from_user.id,
-                    UserSubscription.channel_id == channel.id
-                )
+        # Перевіряємо підписку
+        sub_result = await session.execute(
+            select(UserSubscription).where(
+                UserSubscription.user_id == message.from_user.id,
+                UserSubscription.channel_id == channel.id
             )
-            if not sub_result.scalar_one_or_none():
-                session.add(UserSubscription(
-                    user_id=message.from_user.id,
-                    channel_id=channel.id
-                ))
-            await session.commit()
-
-        # Оновлюємо повідомлення з результатом
-        await thinking_msg.edit_text(
-            f"✅ <b>Канал додано!</b>\n\n"
-            f"📺 <b>{chat.title}</b>\n"
-            f"{'@' + chat.username if chat.username else ''}\n\n"
-            f"Підписано автоматично! 🟢"
         )
-        # Оновлюємо кеш моніторингу миттєво
-        await monitor.track_channel(channel.id)
+        subscription = sub_result.scalar_one_or_none()
         
-        schedule_delete(message, 3)       # Повідомлення юзера
-        schedule_delete(thinking_msg, 5)  # Відповідь бота
+        if not subscription:
+            session.add(UserSubscription(
+                user_id=message.from_user.id,
+                channel_id=channel.id
+            ))
+            await session.commit()
+            status = "\n\n✅ Підписано!"
+        else:
+            status = "\n\n✅ Ви вже підписані"
+        
+        # Якщо канал зовсім новий (щойно створений сервісом), запускаємо аналіз категорії
+        # Ми можемо перевірити це за часом створення або просто запустити класифікацію для профілактики
+        
+        bot_msg = await message.answer(
+            f"📺 <b>{channel.title}</b>"
+            f"{status}"
+        )
+
+        # AI класифікація (якщо категорія ще дефолтна)
+        if channel.category == "📰 Події":
+            sample_text = message.text or message.caption or ""
+            ai_category = await classify_channel(
+                title=channel.title,
+                username=channel.username,
+                sample_text=sample_text
+            )
+            await channel_service.update_category(channel.id, ai_category)
+            await bot_msg.edit_text(
+                f"📺 <b>{channel.title}</b>\n"
+                f"📂 Категорія: <b>{ai_category}</b>"
+                f"{status}"
+            )
+
+        schedule_delete(message, 3)
+        schedule_delete(bot_msg, 10)
         
     except Exception as e:
         logger.exception(f"ERROR in handle_forward: {e}")
@@ -177,122 +132,57 @@ async def handle_channel_link(message: Message):
     )
     
     try:
-        # Перевіряємо чи канал вже є в базі
-        async with AsyncSessionLocal() as session:
-            result = await session.execute(
-                select(Channel).where(Channel.username == username)
-            )
-            existing = result.scalar_one_or_none()
-            
-            if existing:
-                # Канал вже є — автопідписка
-                sub_result = await session.execute(
-                    select(UserSubscription).where(
-                        UserSubscription.user_id == message.from_user.id,
-                        UserSubscription.channel_id == existing.id
-                    )
-                )
-                subscription = sub_result.scalar_one_or_none()
-                
-                if not subscription:
-                    session.add(UserSubscription(
-                        user_id=message.from_user.id,
-                        channel_id=existing.id
-                    ))
-                    await session.commit()
-                    status = "\n\n✅ Підписано!"
-                else:
-                    status = "\n\n✅ Ви вже підписані"
-                
-                # Оновлюємо кеш моніторингу миттєво
-                await monitor.track_channel(existing.id)
-                
-                bot_msg = await message.answer(
-                    f"📺 <b>{existing.title}</b>"
-                    f"{status}"
-                )
-                schedule_delete(message, 3)
-                schedule_delete(bot_msg, 5)
-                return
+        # Використовуємо сервіс для валідації та отримання/створення каналу
+        channel, error = await channel_service.get_or_create_channel(username)
         
-        # Канал новий — резолвимо через Telethon
-        thinking_msg = await message.answer(
-            f"🔍 <b>Шукаю канал @{username}...</b>\n"
-            f"🤖 <i>Зачекайте, аналізую...</i>"
-        )
-        
-        try:
-            # Підключаємо Telethon якщо ще не підключений
-            if not monitor.client.is_connected():
-                await monitor.start()
-            
-            entity = await monitor.client.get_entity(username)
-        except Exception as e:
-            logger.error(f"Failed to resolve @{username}: {e}")
-            await thinking_msg.edit_text(
-                f"❌ <b>Канал @{username} не знайдено</b>\n\n"
-                f"Перевірте правильність юзернейму або спробуйте переслати пост з каналу."
-            )
+        if error or not channel:
+            bot_msg = await message.answer(f"❌ Помилка: {error}")
             schedule_delete(message, 3)
-            schedule_delete(hint, 5)
+            schedule_delete(bot_msg, 5)
             return
-        
-        # Перевіряємо що це канал, а не група або юзер
-        from telethon.tl.types import Channel as TelethonChannel
-        if not isinstance(entity, TelethonChannel):
-            await thinking_msg.edit_text(
-                f"⚠️ <b>@{username}</b> — це не канал.\n\n"
-                f"Я працюю тільки з Telegram-каналами. Будь ласка, надішліть посилання на канал."
-            )
-            schedule_delete(message, 3)
-            schedule_delete(thinking_msg, 5)
-            return
-        
-        # Створюємо канал у БД
+
+        # Підписка
         async with AsyncSessionLocal() as session:
-            channel = Channel(
-                telegram_id=entity.id,
-                username=username,
-                title=entity.title,
-                category="📰 Події",
-                is_active=True
+            sub_result = await session.execute(
+                select(UserSubscription).where(
+                    UserSubscription.user_id == message.from_user.id,
+                    UserSubscription.channel_id == channel.id
+                )
             )
-            session.add(channel)
-            await session.commit()
-            await session.refresh(channel)
-            logger.info(f"New channel via link: {entity.title} (db_id={channel.id})")
+            if not sub_result.scalar_one_or_none():
+                session.add(UserSubscription(
+                    user_id=message.from_user.id,
+                    channel_id=channel.id
+                ))
+                await session.commit()
+                status = "✅ Підписано!"
+            else:
+                status = "✅ Ви вже підписані"
         
-        # AI класифікація
-        ai_category = await classify_channel(
-            title=entity.title,
-            username=username,
-            sample_text=None  # Немає тексту поста
+        # Результат
+        bot_msg = await message.answer(
+            f"📺 <b>{channel.title}</b>\n"
+            f"@{channel.username}\n\n"
+            f"{status}"
         )
-        
-        logger.info(f"AI classified '{entity.title}' → '{ai_category}'")
-        
-        # Зберігаємо категорію + автопідписка
-        async with AsyncSessionLocal() as session:
-            ch = await session.get(Channel, channel.id)
-            ch.category = ai_category
-            session.add(UserSubscription(
-                user_id=message.from_user.id,
-                channel_id=channel.id
-            ))
-            await session.commit()
-        
-        # Показуємо результат
-        await thinking_msg.edit_text(
-            f"✅ <b>Канал додано!</b>\n\n"
-            f"📺 <b>{entity.title}</b>\n"
-            f"@{username}\n\n"
-            f"Підписано автоматично! 🟢"
-        )
-        # Оновлюємо кеш моніторингу миттєво
-        await monitor.track_channel(channel.id)
-        
-        schedule_delete(message, 3)       # Повідомлення юзера
-        schedule_delete(thinking_msg, 5)  # Відповідь бота
+
+        # AI класифікація (якщо категорія ще дефолтна)
+        if channel.category == "📰 Події":
+            ai_category = await classify_channel(
+                title=channel.title,
+                username=channel.username,
+                sample_text=None
+            )
+            await channel_service.update_category(channel.id, ai_category)
+            await bot_msg.edit_text(
+                f"📺 <b>{channel.title}</b>\n"
+                f"@{channel.username}\n"
+                f"📂 Категорія: <b>{ai_category}</b>\n\n"
+                f"{status}"
+            )
+
+        schedule_delete(message, 3)
+        schedule_delete(bot_msg, 10)
         
     except Exception as e:
         logger.exception(f"ERROR in handle_channel_link: {e}")

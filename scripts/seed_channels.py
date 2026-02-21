@@ -4,38 +4,35 @@ from database.connection import AsyncSessionLocal
 from database.models import Channel
 from sqlalchemy import select
 from loguru import logger
+from services.channel_service import channel_service
 
-# Початковий список каналів з техзавдання
+# Початковий список каналів з техзавдання (без хардкод-ідентіфікаторів!)
 INITIAL_CHANNELS = [
-    {"title": "Українська правда", "username": "pravdaGerashchenko", "telegram_id": -1001055530773, "category": "Новини"}, # приклади ID
-    {"title": "НВ", "username": "nvua_official", "telegram_id": -1001146313181, "category": "Новини"},
-    {"title": "Forbes Ukraine", "username": "forbesukraine", "telegram_id": -1001490215707, "category": "Бізнес"},
-    {"title": "Економічна правда", "username": "epravda", "telegram_id": -1001140027209, "category": "Бізнес"},
-    {"title": "DOU", "username": "doucommunity", "telegram_id": -1001111624891, "category": "Технології"},
+    {"title": "Українська правда", "username": "pravdaGerashchenko", "category": "Новини"},
+    {"title": "НВ", "username": "nvua_official", "category": "Новини"},
+    {"title": "Forbes Ukraine", "username": "forbes_ukraine", "category": "Бізнес"},
+    {"title": "Економічна правда", "username": "epravda", "category": "Бізнес"},
+    {"title": "DOU", "username": "doucommunity", "category": "Технології"},
 ]
 
 async def seed_channels():
-    async with AsyncSessionLocal() as session:
-        for ch_data in INITIAL_CHANNELS:
-            # Перевіряємо чи вже є такий канал
-            result = await session.execute(select(Channel).where(Channel.username == ch_data["username"]))
-            existing = result.scalar_one_or_none()
-            
-            if not existing:
-                new_channel = Channel(
-                    title=ch_data["title"],
-                    username=ch_data["username"],
-                    telegram_id=ch_data["telegram_id"],
-                    category=ch_data["category"],
-                    is_active=True
-                )
-                session.add(new_channel)
-                logger.info(f"Added channel to seed: {ch_data['title']}")
-            else:
-                logger.debug(f"Channel {ch_data['title']} already exists")
+    """Наповнення бази з автоматичною валідацією ID через Telegram API"""
+    logger.info(f"Starting seed for {len(INITIAL_CHANNELS)} channels...")
+    
+    for ch_data in INITIAL_CHANNELS:
+        logger.info(f"Seeding/Validating channel: {ch_data['title']} (@{ch_data['username']})")
         
-        await session.commit()
-        logger.info("Seeding completed!")
+        # Використовуємо наш новий сервіс для безпечного додавання
+        channel, error = await channel_service.get_or_create_channel(ch_data['username'])
+        
+        if channel:
+            # Оновлюємо категорію (якщо вона відрізняється від дефолтної)
+            await channel_service.update_category(channel.id, ch_data['category'])
+            logger.info(f"✅ Channel '{ch_data['title']}' is ready with TG ID: {channel.telegram_id}")
+        else:
+            logger.error(f"❌ Failed to seed {ch_data['title']}: {error}")
+    
+    logger.info("Seeding completed!")
 
 if __name__ == "__main__":
     import os

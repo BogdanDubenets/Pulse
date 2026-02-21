@@ -8,7 +8,11 @@ import { CategorySectionUnified } from '../components/CategorySectionUnified';
 import { DigestListItem } from '../components/DigestListItem';
 
 export const DigestPage: React.FC = () => {
-    const userId = 461874849; // TODO: extract from initData
+    // Отримуємо userId з Telegram WebApp або використовуємо fallback для розробки
+    const webApp = window.Telegram?.WebApp;
+    const tgUserId = webApp?.initDataUnsafe?.user?.id;
+    const userId = tgUserId || 461874849; // Fallback на ID Богдана, якщо не в Telegram
+
     const { digest, isLoading, error, fetchDigest } = useDigestStore();
     const [selectedItem, setSelectedItem] = useState<Story | BriefNews | null>(null);
 
