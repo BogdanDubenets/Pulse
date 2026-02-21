@@ -27,75 +27,76 @@ CHANNEL_PATTERN = re.compile(
 @router.message(F.forward_from_chat)
 async def handle_forward(message: Message):
     """Обробка пересланого повідомлення з каналу"""
-    chat = message.forward_from_chat
-    if chat.type != "channel":
-        err = await message.reply("Вибачте, я працюю тільки з Телеграм-каналами.")
-        schedule_delete(message, 3)
-        schedule_delete(err, 5)
-        return
-
-    logger.info(f"Forward from channel: {chat.title} (id={chat.id}) by user {message.from_user.id}")
-
-    # Реєстрація користувача (про всяк випадок, якщо пропустив /start)
-    await upsert_user(
-        user_id=message.from_user.id,
-        first_name=message.from_user.first_name,
-        username=message.from_user.username,
-        language_code=message.from_user.language_code
-    )
-
-    async with AsyncSessionLocal() as session:
-        # Використовуємо сервіс для валідації та отримання/створення каналу
-        channel, error = await channel_service.get_or_create_channel(str(chat.id))
-        
-        if error or not channel:
-            await message.reply(f"❌ Помилка: {error}")
+    try:
+        chat = message.forward_from_chat
+        if chat.type != "channel":
+            err = await message.reply("Вибачте, я працюю тільки з Телеграм-каналами.")
+            schedule_delete(message, 3)
+            schedule_delete(err, 5)
             return
 
-        # Перевіряємо підписку
-        sub_result = await session.execute(
-            select(UserSubscription).where(
-                UserSubscription.user_id == message.from_user.id,
-                UserSubscription.channel_id == channel.id
-            )
-        )
-        subscription = sub_result.scalar_one_or_none()
-        
-        if not subscription:
-            session.add(UserSubscription(
-                user_id=message.from_user.id,
-                channel_id=channel.id
-            ))
-            await session.commit()
-            status = "\n\n✅ Підписано!"
-        else:
-            status = "\n\n✅ Ви вже підписані"
-        
-        # Якщо канал зовсім новий (щойно створений сервісом), запускаємо аналіз категорії
-        # Ми можемо перевірити це за часом створення або просто запустити класифікацію для профілактики
-        
-        bot_msg = await message.answer(
-            f"📺 <b>{channel.title}</b>"
-            f"{status}"
+        logger.info(f"Forward from channel: {chat.title} (id={chat.id}) by user {message.from_user.id}")
+
+        # Реєстрація користувача (про всяк випадок, якщо пропустив /start)
+        await upsert_user(
+            user_id=message.from_user.id,
+            first_name=message.from_user.first_name,
+            username=message.from_user.username,
+            language_code=message.from_user.language_code
         )
 
-        # AI класифікація (якщо категорія ще дефолтна)
-        if channel.category == "📰 Події":
-            sample_text = message.text or message.caption or ""
-            ai_category = await classify_channel(
-                title=channel.title,
-                username=channel.username,
-                sample_text=sample_text
+        async with AsyncSessionLocal() as session:
+            # Використовуємо сервіс для валідації та отримання/створення каналу
+            channel, error = await channel_service.get_or_create_channel(str(chat.id))
+            
+            if error or not channel:
+                await message.reply(f"❌ Помилка: {error}")
+                return
+
+            # Перевіряємо підписку
+            sub_result = await session.execute(
+                select(UserSubscription).where(
+                    UserSubscription.user_id == message.from_user.id,
+                    UserSubscription.channel_id == channel.id
+                )
             )
-            await channel_service.update_category(channel.id, ai_category)
-            await bot_msg.edit_text(
-                f"📺 <b>{channel.title}</b>\n"
-                f"📂 Категорія: <b>{ai_category}</b>"
+            subscription = sub_result.scalar_one_or_none()
+            
+            if not subscription:
+                session.add(UserSubscription(
+                    user_id=message.from_user.id,
+                    channel_id=channel.id
+                ))
+                await session.commit()
+                status = "\n\n✅ Підписано!"
+            else:
+                status = "\n\n✅ Ви вже підписані"
+            
+            # Якщо канал зовсім новий (щойно створений сервісом), запускаємо аналіз категорії
+            # Ми можемо перевірити це за часом створення або просто запустити класифікацію для профілактики
+            
+            bot_msg = await message.answer(
+                f"📺 <b>{channel.title}</b>"
                 f"{status}"
             )
 
-        schedule_delete(message, 3)
-        schedule_delete(bot_msg, 10)
+            # AI класифікація (якщо категорія ще дефолтна)
+            if channel.category == "📰 Події":
+                sample_text = message.text or message.caption or ""
+                ai_category = await classify_channel(
+                    title=channel.title,
+                    username=channel.username,
+                    sample_text=sample_text
+                )
+                await channel_service.update_category(channel.id, ai_category)
+                await bot_msg.edit_text(
+                    f"📺 <b>{channel.title}</b>\n"
+                    f"📂 Категорія: <b>{ai_category}</b>"
+                    f"{status}"
+                )
+
+            schedule_delete(message, 3)
+            schedule_delete(bot_msg, 10)
         
     except Exception as e:
         logger.exception(f"ERROR in handle_forward: {e}")
