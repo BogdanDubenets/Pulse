@@ -98,26 +98,21 @@ class ChannelMonitor:
         """Додає канал до внутрішнього кешу."""
         if channel.telegram_id:
             self.active_channels[channel.telegram_id] = channel.id
-            # Додаємо варіант з -100, якщо його ще немає
+            clean_username = (channel.username or "").lower().replace('@', '')
+            if clean_username:
+                self.username_to_id[clean_username] = channel.id
+                self.chat_username_cache[channel.telegram_id] = clean_username
+            
+            # Також кешуємо для -100 версії (якщо це числовий ID)
             str_id = str(channel.telegram_id)
             if not str_id.startswith("-100"):
                 try:
                     prefixed_id = int(f"-100{channel.telegram_id}")
                     self.active_channels[prefixed_id] = channel.id
+                    if clean_username:
+                        self.chat_username_cache[prefixed_id] = clean_username
                 except ValueError:
                     pass
-            clean_username = channel.username.lower().replace('@', '')
-            self.username_to_id[clean_username] = channel.id
-            if channel.telegram_id:
-                self.chat_username_cache[channel.telegram_id] = clean_username
-                # Також кешуємо для -100 версії, якщо ID позитивний
-                str_id = str(channel.telegram_id)
-                if not str_id.startswith("-100"):
-                     try:
-                        prefixed_id = int(f"-100{channel.telegram_id}")
-                        self.chat_username_cache[prefixed_id] = clean_username
-                     except ValueError:
-                        pass
 
     async def track_channel(self, channel_id: int):
         """
@@ -346,9 +341,15 @@ class ChannelMonitor:
             date = event.message.date
             views = getattr(event.message, 'views', 0) or 0
             
-            # URL — використовуємо кешований username
+            # URL — використовуємо кешований username або fallback на ID
             username = chat_username or self.chat_username_cache.get(event.chat_id)
-            url = f"https://t.me/{username}/{msg_id}" if username else None
+            if username:
+                url = f"https://t.me/{username}/{msg_id}"
+            else:
+                # Fallback: https://t.me/c/ID/MSG_ID
+                # Telegram ID для посилань має бути без префіксу -100
+                clean_id = str(event.chat_id).replace("-100", "")
+                url = f"https://t.me/c/{clean_id}/{msg_id}"
 
             async with AsyncSessionLocal() as session:
                 try:
