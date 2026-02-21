@@ -48,7 +48,17 @@ async def get_user_digest_data(
                 Story.last_updated_at >= time_threshold,
                 Publication.channel_id.in_(user_channel_ids)
             )
-            .distinct()
+        )
+        
+        # Додаємо фільтрацію за обраними категоріями/каналами
+        if pinned_categories:
+            if group_by == "category":
+                stmt_stories = stmt_stories.where(Story.category.in_(pinned_categories))
+            elif group_by == "channel":
+                stmt_stories = stmt_stories.join(Channel, Publication.channel_id == Channel.id).where(Channel.title.in_(pinned_categories))
+
+        stmt_stories = (
+            stmt_stories.distinct()
             .order_by(desc(Story.last_updated_at), desc(Story.confidence_score))
             .offset(offset)
             .limit(limit)
@@ -102,7 +112,16 @@ async def get_user_digest_data(
                 Publication.published_at >= time_threshold,
                 (Publication.story_id.notin_(story_ids)) | (Publication.story_id.is_(None))
             )
-            .order_by(desc(Publication.published_at))
+        )
+
+        if pinned_categories:
+            if group_by == "category":
+                stmt_briefs = stmt_briefs.where(Publication.category.in_(pinned_categories))
+            elif group_by == "channel":
+                stmt_briefs = stmt_briefs.where(Channel.title.in_(pinned_categories))
+
+        stmt_briefs = (
+            stmt_briefs.order_by(desc(Publication.published_at))
             .offset(offset)
             .limit(limit)
         )

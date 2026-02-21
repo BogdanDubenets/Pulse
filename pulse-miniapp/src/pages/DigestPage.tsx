@@ -113,6 +113,23 @@ export const DigestPage: React.FC = () => {
                             <img src="/pulse-logo.svg" alt="Pulse" className="w-9 h-9" />
                             Pulse
                         </h1>
+                        {pinnedCats.length > 0 && (
+                            <div className="mt-2 flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                                <button
+                                    onClick={() => {
+                                        setPinnedCats([]);
+                                        localStorage.removeItem('pulse_pinned_cats');
+                                    }}
+                                    className="flex items-center gap-2 px-3 py-1 bg-primary/10 text-primary rounded-full text-[10px] font-black uppercase tracking-widest border border-primary/20 transition-all active:scale-95 shadow-sm"
+                                >
+                                    <X size={12} strokeWidth={3} />
+                                    Всі розділи
+                                </button>
+                                <span className="text-[10px] text-text-muted font-bold uppercase tracking-widest truncate max-w-[120px]">
+                                    • {pinnedCats[0]}
+                                </span>
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex p-1 bg-surface backdrop-blur-md rounded-xl border border-border">
