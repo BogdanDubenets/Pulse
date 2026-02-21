@@ -4,27 +4,57 @@
   color: red !important;
 }
 
+:root {
+  /* Light Theme */
+  --background: #F8FAFC;
+  --surface: #FFFFFF;
+  --primary: #FF6B6B;
+  --secondary: #4ECDC4;
+  --accent: #FDCB6E;
+  --border: #E2E8F0;
+
+  --text-primary: #1E293B;
+  --text-secondary: #64748B;
+  --text-muted: #94A3B8;
+
+  --success: #10B981;
+  --warning: #F59E0B;
+  --error: #EF4444;
+}
+
+.dark {
+  /* Dark Theme */
+  --background: #1A1D2E;
+  --surface: #252A3F;
+  --primary: #FF6B6B;
+  --secondary: #4ECDC4;
+  --accent: #FDCB6E;
+  --border: #3A4059;
+
+  --text-primary: #FFFFFF;
+  --text-secondary: #B2B9C4;
+  --text-muted: #636E72;
+
+  --success: #00B894;
+  --warning: #FDCB6E;
+  --error: #D63031;
+}
+
 @theme {
-  /* Pulse Brand — Dark Theme */
-  --color-background: #1A1D2E;
-  --color-surface: #252A3F;
-  --color-primary: #FF6B6B;
-  --color-secondary: #4ECDC4;
-  --color-accent: #FDCB6E;
-  --color-border: #3A4059;
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-accent: var(--accent);
+  --color-border: var(--border);
 
-  /* Text */
-  --color-text-primary: #FFFFFF;
-  --color-text-secondary: #B2B9C4;
-  --color-text-muted: #636E72;
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
 
-  /* Status Colors */
-  --color-success: #00B894;
-  --color-warning: #FDCB6E;
-  --color-error: #D63031;
-  --color-trending: #FF6B6B;
-  --color-verified: #4ECDC4;
-  --color-pending: #95A5A6;
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
 
   --font-sans: 'Inter', sans-serif;
 }

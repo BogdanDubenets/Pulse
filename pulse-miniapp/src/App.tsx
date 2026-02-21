@@ -1,9 +1,17 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { DigestPage } from './pages/DigestPage';
 import { StoryPage } from './pages/StoryPage';
+import { useThemeStore } from './store/themeStore';
+import { useEffect } from 'react';
 
-// Build verification: 6500037_v2_461874849
+// Build verification: 6500037_v3_461874849
 function App() {
+  const initTheme = useThemeStore(state => state.initTheme);
+
+  useEffect(() => {
+    initTheme();
+  }, [initTheme]);
+
   return (
     <BrowserRouter>
       <Routes>

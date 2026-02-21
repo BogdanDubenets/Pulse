@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useDigestStore } from '../store';
+import { useThemeStore } from '../store/themeStore';
 import { Layout } from '../components/Layout';
-import { Loader2, X, ExternalLink, LayoutGrid, Clock, Pin, Hash } from 'lucide-react';
+import { Loader2, X, ExternalLink, LayoutGrid, Clock, Pin, Hash, Sun, Moon } from 'lucide-react';
 import type { Story, BriefNews } from '../types';
 import Markdown from 'react-markdown';
 import { CategorySectionUnified } from '../components/CategorySectionUnified';
@@ -14,6 +15,7 @@ export const DigestPage: React.FC = () => {
     const userId = tgUserId || 461874849; // Fallback на ID Богдана, якщо не в Telegram
 
     const { digest, isLoading, isRefreshing, error, fetchDigest } = useDigestStore();
+    const { theme, toggleTheme } = useThemeStore();
     const [selectedItem, setSelectedItem] = useState<Story | BriefNews | null>(null);
     const [offset, setOffset] = useState(0);
     const observer = useRef<IntersectionObserver | null>(null);
@@ -153,6 +155,16 @@ export const DigestPage: React.FC = () => {
                             title="За часом"
                         >
                             <Clock size={18} />
+                        </button>
+
+                        <div className="w-px h-6 bg-border mx-1 self-center" />
+
+                        <button
+                            onClick={toggleTheme}
+                            className="p-2 rounded-lg text-text-secondary hover:text-text-primary transition-all active:scale-90"
+                            title={theme === 'dark' ? 'Світла тема' : 'Темна тема'}
+                        >
+                            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
                         </button>
                     </div>
                 </div>
