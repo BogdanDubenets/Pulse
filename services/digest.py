@@ -200,8 +200,8 @@ async def get_user_digest_data(
                     if "timestamp" in item["data"]: del item["data"]["timestamp"]
                 
                 final_channels[source] = {
-                    "items": items[:2], # Ліміт 2 для головної
-                    "has_more": len(items) > 2,
+                    "items": items if pinned_categories else items[:2],
+                    "has_more": (len(formatted_stories) == limit or len(formatted_briefs) == limit) if pinned_categories else len(items) > 2,
                     "total_count": len(items)
                 }
             
@@ -237,8 +237,8 @@ async def get_user_digest_data(
                     if "timestamp" in item["data"]: del item["data"]["timestamp"]
                 
                 final_categories[cat] = {
-                    "items": items[:2],
-                    "has_more": len(items) > 2,
+                    "items": items if pinned_categories else items[:2],
+                    "has_more": (len(formatted_stories) == limit or len(formatted_briefs) == limit) if pinned_categories else len(items) > 2,
                     "total_count": len(items)
                 }
 
