@@ -86,6 +86,25 @@ tg?.close();
 tg?.expand();
 ```
 
+### Керування темами (Dark/Light)
+
+Для керування режимом відображення використовується `useThemeStore`.
+
+```typescript
+// src/store/themeStore.ts 
+const { theme, toggleTheme } = useThemeStore();
+
+// У компоненті
+<button onClick={toggleTheme}>
+  {theme === 'dark' ? <Sun /> : <Moon />}
+</button>
+```
+
+**Особливості:**
+- Клас `.dark` на `document.documentElement` активує темну тему.
+- Кольори задаються через CSS змінні (див. `index.css`).
+- Тема автоматично синхронізується з Telegram (`colorScheme`).
+
 ### Vite Proxy (локальна розробка)
 
 ```typescript
