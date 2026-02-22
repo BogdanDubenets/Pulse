@@ -21,6 +21,7 @@ interface CatalogState {
     fetchMyChannels: (userId: number) => Promise<void>;
     fetchUserStatus: (userId: number) => Promise<void>;
     addCustomChannel: (userId: number, url: string) => Promise<{ success: boolean; message: string }>;
+    createInvoice: (userId: number, tier: string) => Promise<string | null>;
     placeBid: (userId: number, channelId: number, category: string, amount: number) => Promise<boolean>;
 }
 
@@ -52,6 +53,19 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
             const message = error.response?.data?.detail || 'Помилка додавання каналу';
             set({ isLoading: false });
             return { success: false, message };
+        }
+    },
+
+    createInvoice: async (userId: number, tier: string) => {
+        set({ isLoading: true, error: null });
+        try {
+            const response = await apiClient.post<{ invoice_link: string }>('/billing/create-invoice', { user_id: userId, tier });
+            set({ isLoading: false });
+            return response.data.invoice_link;
+        } catch (error: any) {
+            const message = error.response?.data?.detail || 'Помилка створення інвойсу';
+            set({ error: message, isLoading: false });
+            return null;
         }
     },
 

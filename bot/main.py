@@ -21,11 +21,12 @@ async def main():
     dp = Dispatcher()
 
     # Підключення роутерів
-    from bot.handlers import start, catalog, forward, channels, digest
+    from bot.handlers import start, catalog, forward, channels, digest, billing
     dp.include_router(start.router)
     dp.include_router(catalog.router)
     dp.include_router(channels.router)
     dp.include_router(digest.router)
+    dp.include_router(billing.router) # Billing handlers for payments
     dp.include_router(forward.router)  # Останнім — бо ловить текстові повідомлення
     
     
