@@ -92,6 +92,7 @@ export interface ChannelCatalogItem {
     partner_status: 'premium' | 'pinned' | 'organic';
     posts_count_24h: number;
     is_core: boolean;
+    avatar_url?: string;
 }
 
 export interface User {

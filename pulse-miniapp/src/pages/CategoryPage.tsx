@@ -85,8 +85,21 @@ export const CategoryPage: React.FC = () => {
                         >
                             <div className="flex items-center space-x-4">
                                 <div className="relative">
-                                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-border to-surface flex items-center justify-center text-xl font-bold border border-border">
-                                        {ch.title.charAt(0)}
+                                    <div className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-border to-surface flex items-center justify-center text-xl font-bold border border-border">
+                                        {ch.avatar_url ? (
+                                            <img
+                                                src={`${import.meta.env.VITE_API_URL || ''}${ch.avatar_url}`}
+                                                alt={ch.title}
+                                                className="w-full h-full object-cover"
+                                                onError={(e) => {
+                                                    (e.target as HTMLImageElement).src = '';
+                                                    (e.target as HTMLImageElement).style.display = 'none';
+                                                }}
+                                            />
+                                        ) : (
+                                            ch.title.charAt(0)
+                                        )}
+                                        {!ch.avatar_url && ch.title.charAt(0)}
                                     </div>
                                     {ch.partner_status === 'premium' && (
                                         <div className="absolute -top-1 -right-1 bg-primary p-1 rounded-full border-2 border-surface">

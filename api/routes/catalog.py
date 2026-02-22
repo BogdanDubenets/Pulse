@@ -7,7 +7,9 @@ from pydantic import BaseModel, HttpUrl
 from typing import List, Optional
 from datetime import datetime
 import httpx
+from fastapi.responses import StreamingResponse
 from config.settings import config
+import io
 
 router = APIRouter(prefix="/api/v1/catalog", tags=["catalog"])
 
@@ -36,6 +38,7 @@ class ChannelCatalogItem(BaseModel):
     partner_status: str
     posts_count_24h: int
     is_core: bool
+    avatar_url: Optional[str] = None
 
 class AuctionBidRequest(BaseModel):
     user_id: int
@@ -206,8 +209,50 @@ async def add_custom_channel(req: CustomChannelRequest, db: AsyncSession = Depen
     if sub_res.scalar_one_or_none():
         return {"status": "ok", "message": "Ви вже підписані на цей канал"}
     
+    # 6. Fetch Avatar if needed
+    try:
+        if not channel.avatar_url:
+            channel.avatar_url = f"/api/v1/catalog/photo/{channel.telegram_id}"
+    except Exception:
+        pass
+
     new_sub = UserSubscription(user_id=req.user_id, channel_id=channel.id)
     db.add(new_sub)
     await db.commit()
     
     return {"status": "ok", "message": "Канал успішно додано до ваших підписок"}
+
+@router.get("/photo/{telegram_id}")
+async def get_channel_photo(telegram_id: int):
+    """Проксі для отримання фото каналу через Telegram Bot API"""
+    token = config.BOT_TOKEN.get_secret_value()
+    async with httpx.AsyncClient() as client:
+        # 1. Get Chat to find big photo file_id
+        chat_resp = await client.get(f"https://api.telegram.org/bot{token}/getChat?chat_id={telegram_id}")
+        if chat_resp.status_code != 200:
+            raise HTTPException(status_code=404, detail="Чат не знайдено")
+        
+        chat_info = chat_resp.json().get("result", {})
+        photo = chat_info.get("photo")
+        if not photo:
+            raise HTTPException(status_code=404, detail="Фото відсутнє")
+        
+        file_id = photo.get("big_file_id") or photo.get("small_file_id")
+        
+        # 2. Get File Path
+        file_resp = await client.get(f"https://api.telegram.org/bot{token}/getFile?file_id={file_id}")
+        if file_resp.status_code != 200:
+            raise HTTPException(status_code=404, detail="Файл не знайдено")
+        
+        file_path = file_resp.json().get("result", {}).get("file_path")
+        
+        # 3. Stream from Telegram
+        photo_url = f"https://api.telegram.org/file/bot{token}/{file_path}"
+        
+        async def stream_file():
+            async with httpx.AsyncClient() as s_client:
+                async with s_client.stream("GET", photo_url) as r:
+                    async for chunk in r.aiter_bytes():
+                        yield chunk
+
+        return StreamingResponse(stream_file(), media_type="image/jpeg")

@@ -21,6 +21,7 @@ class Channel(Base):
     partner_status: Mapped[str] = mapped_column(String, default="organic") # premium, pinned, organic
     pinned_msg_id: Mapped[Optional[int]] = mapped_column(BigInteger)
     posts_count_24h: Mapped[int] = mapped_column(Integer, default=0)
+    avatar_url: Mapped[Optional[str]] = mapped_column(String)
     last_scanned_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
