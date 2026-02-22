@@ -10,6 +10,7 @@ interface CatalogState {
 
     fetchCategories: () => Promise<void>;
     fetchChannels: (category?: string) => Promise<void>;
+    fetchMyChannels: (userId: number) => Promise<void>;
     placeBid: (userId: number, channelId: number, category: string, amount: number) => Promise<boolean>;
 }
 
@@ -39,6 +40,17 @@ export const useCatalogStore = create<CatalogState>((set) => ({
         } catch (error: any) {
             console.error('Failed to fetch channels:', error);
             set({ error: 'Помилка завантаження каналів', isLoading: false });
+        }
+    },
+
+    fetchMyChannels: async (userId: number) => {
+        set({ isLoading: true, error: null });
+        try {
+            const response = await apiClient.get<ChannelCatalogItem[]>(`/catalog/my-channels/${userId}`);
+            set({ channels: response.data, isLoading: false });
+        } catch (error: any) {
+            console.error('Failed to fetch my channels:', error);
+            set({ error: 'Помилка завантаження ваших підписок', isLoading: false });
         }
     },
 

@@ -80,6 +80,19 @@ async def get_channels(
     result = await db.execute(stmt)
     return result.scalars().all()
 
+@router.get("/my-channels/{user_id}", response_model=List[ChannelCatalogItem])
+async def get_my_channels(user_id: int, db: AsyncSession = Depends(get_db)):
+    """Отримати канали, на які підписаний користувач"""
+    from database.models import UserSubscription
+    stmt = (
+        select(Channel)
+        .join(UserSubscription, Channel.id == UserSubscription.channel_id)
+        .where(UserSubscription.user_id == user_id, Channel.is_active == True)
+        .order_by(Channel.title)
+    )
+    result = await db.execute(stmt)
+    return result.scalars().all()
+
 @router.post("/auction/bid")
 async def place_bid(bid: AuctionBidRequest, db: AsyncSession = Depends(get_db)):
     """Ставка в аукціоні за Top-1 місце в категорії"""
