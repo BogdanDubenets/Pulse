@@ -3,11 +3,13 @@ from datetime import datetime
 from loguru import logger
 from aiogram import Bot
 from aiogram.enums import ParseMode
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from sqlalchemy import select, distinct
 from database.connection import AsyncSessionLocal
 from database.models import UserSubscription
 from services.digest import get_user_digest
 from database.cleanup import cleanup_old_data
+from config.settings import config
 
 MORNING_HOUR = 8
 EVENING_HOUR = 20
@@ -78,8 +80,23 @@ async def send_digests(bot: Bot, period: str):
             if digest:
                 msg_text = f"{greeting}\n\n{digest}"
                 
+                # Створюємо кнопку Mini App
+                keyboard = None
+                if config.WEBAPP_URL:
+                    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                        [InlineKeyboardButton(
+                            text="📱 Відкрити Pulse", 
+                            web_app=WebAppInfo(url=config.WEBAPP_URL)
+                        )]
+                    ])
+                
                 try:
-                    await bot.send_message(user_id, msg_text, parse_mode=ParseMode.MARKDOWN)
+                    await bot.send_message(
+                        user_id, 
+                        msg_text, 
+                        parse_mode=ParseMode.MARKDOWN,
+                        reply_markup=keyboard
+                    )
                 except TelegramRetryAfter as e:
                     # FloodWait від Bot API — чекаємо вказаний час
                     logger.warning(f"⏳ Bot API FloodWait: очікування {e.retry_after}с")
@@ -93,10 +110,18 @@ async def send_digests(bot: Bot, period: str):
                 except Exception as parse_error:
                     # Fallback якщо Markdown не парситься
                     try:
-                        await bot.send_message(user_id, msg_text)
+                        await bot.send_message(
+                            user_id, 
+                            msg_text,
+                            reply_markup=keyboard
+                        )
                     except TelegramRetryAfter as e:
                         await asyncio.sleep(e.retry_after)
-                        await bot.send_message(user_id, msg_text)
+                        await bot.send_message(
+                            user_id, 
+                            msg_text,
+                            reply_markup=keyboard
+                        )
                     
                 sent_count += 1
                 logger.info(f"{period.capitalize()} дайджест надіслано {user_id}")
