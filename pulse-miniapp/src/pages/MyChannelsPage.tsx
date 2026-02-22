@@ -14,8 +14,41 @@ import {
     X,
     Lock,
     CheckCircle2,
-    AlertCircle
+    AlertCircle,
+    Star,
+    Crown
 } from 'lucide-react';
+
+const PLANS = [
+    {
+        id: 'basic',
+        name: 'Basic',
+        price: 50,
+        limit: 6,
+        icon: <Zap className="w-5 h-5" />,
+        color: 'from-blue-500 to-cyan-500',
+        features: 'До 6 каналів'
+    },
+    {
+        id: 'standard',
+        name: 'Standard',
+        price: 90,
+        limit: 10,
+        icon: <Star className="w-5 h-5" />,
+        color: 'from-purple-500 to-pink-500',
+        popular: true,
+        features: 'До 10 каналів'
+    },
+    {
+        id: 'premium',
+        name: 'Premium',
+        price: 120,
+        limit: 15,
+        icon: <Crown className="w-5 h-5" />,
+        color: 'from-amber-400 to-orange-500',
+        features: 'До 15 каналів'
+    }
+];
 
 export const MyChannelsPage: React.FC = () => {
     const navigate = useNavigate();
@@ -26,13 +59,16 @@ export const MyChannelsPage: React.FC = () => {
         error,
         fetchMyChannels,
         fetchUserStatus,
-        addCustomChannel
+        addCustomChannel,
+        createInvoice
     } = useCatalogStore();
 
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isPaywallOpen, setIsPaywallOpen] = useState(false);
     const [channelUrl, setChannelUrl] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isSubscribing, setIsSubscribing] = useState(false);
+    const [selectedTier, setSelectedTier] = useState('standard');
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
     const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 461874849;
@@ -41,6 +77,23 @@ export const MyChannelsPage: React.FC = () => {
         fetchMyChannels(userId);
         fetchUserStatus(userId);
     }, [userId, fetchMyChannels, fetchUserStatus]);
+
+    const handleSubscribe = async () => {
+        setIsSubscribing(true);
+        const invoiceLink = await createInvoice(userId, selectedTier);
+
+        if (invoiceLink) {
+            (window.Telegram?.WebApp as any).openInvoice(invoiceLink, (status: string) => {
+                if (status === 'paid') {
+                    fetchUserStatus(userId);
+                    setIsPaywallOpen(false);
+                }
+                setIsSubscribing(false);
+            });
+        } else {
+            setIsSubscribing(false);
+        }
+    };
 
     const handleAddClick = () => {
         if (userStatus && !userStatus.can_add) {
@@ -309,24 +362,52 @@ export const MyChannelsPage: React.FC = () => {
                             </div>
 
                             <div className="space-y-3">
-                                <div className="p-4 bg-surface border border-border rounded-2xl flex items-center space-x-4 text-left group hover:border-primary/30 transition-colors">
-                                    <div className="p-2 bg-primary/10 rounded-lg group-hover:scale-110 transition-transform">
-                                        <Zap className="w-5 h-5 text-primary" />
+                                {PLANS.map((plan) => (
+                                    <div
+                                        key={plan.id}
+                                        onClick={() => setSelectedTier(plan.id)}
+                                        className={`p-4 bg-surface border rounded-2xl flex items-center justify-between transition-all cursor-pointer ${selectedTier === plan.id ? 'border-primary ring-1 ring-primary/20 bg-primary/5' : 'border-border'
+                                            }`}
+                                    >
+                                        <div className="flex items-center space-x-3">
+                                            <div className={`p-2 rounded-lg bg-gradient-to-br ${plan.color} text-white`}>
+                                                {plan.icon}
+                                            </div>
+                                            <div className="text-left">
+                                                <div className="flex items-center space-x-2">
+                                                    <p className="font-bold text-sm">{plan.name}</p>
+                                                    {plan.popular && <span className="text-[8px] bg-primary text-white px-1.5 py-0.5 rounded-full uppercase font-black">Hit</span>}
+                                                </div>
+                                                <p className="text-[10px] text-text-muted">{plan.features}</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="flex items-center space-x-1 justify-end">
+                                                <span className="font-black text-sm">{plan.price}</span>
+                                                <Star className="w-3 h-3 fill-current text-amber-400" />
+                                            </div>
+                                            <p className="text-[8px] text-text-muted uppercase font-bold">на 30 днів</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="font-bold text-sm">Pulse Premium</p>
-                                        <p className="text-xs text-text-muted">Необмежено власних каналів</p>
-                                    </div>
-                                </div>
+                                ))}
+
                                 <button
-                                    onClick={() => navigate('/billing')}
-                                    className="w-full py-4 bg-primary text-white rounded-2xl font-bold shadow-lg shadow-primary/30 hover:shadow-primary/40 active:scale-95 transition-all text-lg"
+                                    onClick={handleSubscribe}
+                                    disabled={isSubscribing || isLoading}
+                                    className="w-full py-4 bg-primary text-white rounded-2xl font-bold shadow-lg shadow-primary/30 hover:shadow-primary/40 active:scale-95 transition-all text-lg flex items-center justify-center space-x-2"
                                 >
-                                    Оновити за 50 Stars
+                                    {isSubscribing ? (
+                                        <Loader2 className="w-6 h-6 animate-spin" />
+                                    ) : (
+                                        <>
+                                            <span>Активувати за {PLANS.find(p => p.id === selectedTier)?.price}</span>
+                                            <Star className="w-5 h-5 fill-current" />
+                                        </>
+                                    )}
                                 </button>
                                 <button
                                     onClick={() => setIsPaywallOpen(false)}
-                                    className="w-full py-3 text-text-secondary font-medium hover:text-text transition-colors"
+                                    className="w-full py-2 text-text-secondary text-sm font-medium hover:text-text transition-colors"
                                 >
                                     Пізніше
                                 </button>
