@@ -5,7 +5,7 @@ from database.connection import AsyncSessionLocal
 from database.models import Channel, Auction, User, UserSubscription
 from pydantic import BaseModel, HttpUrl
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 import httpx
 from fastapi.responses import StreamingResponse
 from config.settings import config
@@ -81,7 +81,6 @@ async def get_channels(
         stmt = stmt.where(Channel.category == category)
         
     # Сортування: Партнерський статус (якщо є), потім кількість постів
-    # В майбутньому тут буде складніша логіка з урахуванням Аукціону Top-1
     stmt = stmt.order_by(
         desc(Channel.partner_status == 'premium'),
         desc(Channel.partner_status == 'pinned'),
@@ -89,7 +88,12 @@ async def get_channels(
     )
     
     result = await db.execute(stmt)
-    return result.scalars().all()
+    channels = result.scalars().all()
+    # Fallback для аватарок, якщо вони порожні в БД
+    for ch in channels:
+        if not ch.avatar_url:
+            ch.avatar_url = f"/api/v1/catalog/photo/{ch.telegram_id}"
+    return channels
 
 @router.get("/my-channels/{user_id}", response_model=List[ChannelCatalogItem])
 async def get_my_channels(user_id: int, db: AsyncSession = Depends(get_db)):
@@ -102,7 +106,11 @@ async def get_my_channels(user_id: int, db: AsyncSession = Depends(get_db)):
         .order_by(Channel.title)
     )
     result = await db.execute(stmt)
-    return result.scalars().all()
+    channels = result.scalars().all()
+    for ch in channels:
+        if not ch.avatar_url:
+            ch.avatar_url = f"/api/v1/catalog/photo/{ch.telegram_id}"
+    return channels
 
 @router.post("/auction/bid")
 async def place_bid(bid: AuctionBidRequest, db: AsyncSession = Depends(get_db)):
@@ -122,7 +130,6 @@ async def place_bid(bid: AuctionBidRequest, db: AsyncSession = Depends(get_db)):
         # Продовжити час аукціону якщо до кінця мало часу? (Опціонально)
     else:
         # Створити новий аукціон (наприклад на 24 години)
-        from datetime import timedelta
         new_auction = Auction(
             category=bid.category,
             current_bid=bid.amount,
