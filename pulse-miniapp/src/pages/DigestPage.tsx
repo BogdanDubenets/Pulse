@@ -1,28 +1,22 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useDigestStore } from '../store';
-import { useThemeStore } from '../store/themeStore';
 import { Layout } from '../components/Layout';
-import { Loader2, X, ExternalLink, LayoutGrid, Clock, Pin, Hash, Sun, Moon, ArrowLeft } from 'lucide-react';
+import { Loader2, X, ExternalLink, LayoutGrid, Clock, Pin, Hash, ArrowLeft } from 'lucide-react';
 import type { Story, BriefNews } from '../types';
 import Markdown from 'react-markdown';
 import { CategorySectionUnified } from '../components/CategorySectionUnified';
 import { DigestListItem } from '../components/DigestListItem';
 
 export const DigestPage: React.FC = () => {
-    // Отримуємо userId з Telegram WebApp або використовуємо fallback для розробки
     const webApp = window.Telegram?.WebApp;
     const tgUserId = webApp?.initDataUnsafe?.user?.id;
-    const userId = tgUserId || 461874849; // Fallback на ID Богдана, якщо не в Telegram
+    const userId = tgUserId || 461874849;
 
     const { digest, isLoading, isRefreshing, error, fetchDigest } = useDigestStore();
-    const { theme, toggleTheme } = useThemeStore();
     const [selectedItem, setSelectedItem] = useState<Story | BriefNews | null>(null);
     const [offset, setOffset] = useState(0);
     const observer = useRef<IntersectionObserver | null>(null);
-    const navigate = useNavigate(); // Added useNavigate hook
 
-    // UI State: 'category', 'time', or 'channel'
     const [groupBy, setGroupBy] = useState<'category' | 'time' | 'channel'>(
         (localStorage.getItem('pulse_group_by') as any) || 'category'
     );
@@ -31,31 +25,26 @@ export const DigestPage: React.FC = () => {
     );
 
     useEffect(() => {
-        setOffset(0); // Скидаємо офсет при зміні фільтрів
+        setOffset(0);
         fetchDigest(userId, groupBy, pinnedCats.join(','));
         localStorage.setItem('pulse_group_by', groupBy);
     }, [fetchDigest, userId, groupBy, pinnedCats]);
 
-    // Функція для завантаження наступної порції
     const loadMore = useCallback(() => {
         if (!digest?.has_more || isLoading || isRefreshing) return;
-
         const nextOffset = offset + 20;
         setOffset(nextOffset);
         fetchDigest(userId, groupBy, pinnedCats.join(','), nextOffset);
     }, [digest?.has_more, isLoading, isRefreshing, offset, fetchDigest, userId, groupBy, pinnedCats]);
 
-    // Налаштування Observer
     const lastElementRef = useCallback((node: HTMLDivElement | null) => {
         if (isLoading || isRefreshing) return;
         if (observer.current) observer.current.disconnect();
-
         observer.current = new IntersectionObserver(entries => {
             if (entries[0].isIntersecting && digest?.has_more) {
                 loadMore();
             }
         });
-
         if (node) observer.current.observe(node);
     }, [isLoading, isRefreshing, digest?.has_more, loadMore]);
 
@@ -68,12 +57,9 @@ export const DigestPage: React.FC = () => {
     };
 
     const handleMoreClick = (title: string) => {
-        // При кліку на "Більше у розділі" ми хочемо показати тільки цей розділ.
-        // Це можна зробити, переключившись у режим 'category'/'channel' та залишивши тільки один 'pinned' елемент
         setPinnedCats([title]);
         setGroupBy(groupBy === 'channel' ? 'channel' : 'category');
         localStorage.setItem('pulse_pinned_cats', JSON.stringify([title]));
-        // Скролимо вгору, щоб користувач бачив результат
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -136,44 +122,27 @@ export const DigestPage: React.FC = () => {
                         )}
                     </div>
 
-                    <div className="flex p-1 bg-surface backdrop-blur-md rounded-xl border border-border">
+                    <div className="flex p-1 bg-surface/40 backdrop-blur-md rounded-xl border border-border/50 shadow-sm">
                         <button
                             onClick={() => setGroupBy('category')}
-                            className={`p-2 rounded-lg transition-all ${groupBy === 'category' ? 'bg-primary text-text-primary shadow-lg' : 'text-text-secondary hover:text-text-primary'}`}
+                            className={`p-2 rounded-lg transition-all ${groupBy === 'category' ? 'bg-primary text-text-primary shadow-lg shadow-primary/20' : 'text-text-secondary hover:text-text-primary'}`}
                             title="За категоріями"
                         >
                             <LayoutGrid size={18} />
                         </button>
                         <button
                             onClick={() => setGroupBy('channel')}
-                            className={`p-2 rounded-lg transition-all ${groupBy === 'channel' ? 'bg-primary text-text-primary shadow-lg' : 'text-text-secondary hover:text-text-primary'}`}
+                            className={`p-2 rounded-lg transition-all ${groupBy === 'channel' ? 'bg-primary text-text-primary shadow-lg shadow-primary/20' : 'text-text-secondary hover:text-text-primary'}`}
                             title="За каналами"
                         >
                             <Hash size={18} />
                         </button>
                         <button
                             onClick={() => setGroupBy('time')}
-                            className={`p-2 rounded-lg transition-all ${groupBy === 'time' ? 'bg-primary text-text-primary shadow-lg' : 'text-text-secondary hover:text-text-primary'}`}
+                            className={`p-2 rounded-lg transition-all ${groupBy === 'time' ? 'bg-primary text-text-primary shadow-lg shadow-primary/20' : 'text-text-secondary hover:text-text-primary'}`}
                             title="За часом"
                         >
                             <Clock size={18} />
-                        </button>
-
-                        <div className="w-px h-6 bg-border mx-1 self-center" />
-
-                        <button
-                            onClick={() => navigate('/catalog')}
-                            className="p-2 text-text-secondary hover:text-primary transition-all active:scale-95"
-                            title="Каталог каналів"
-                        >
-                            <LayoutGrid size={18} />
-                        </button>
-
-                        <button
-                            onClick={toggleTheme}
-                            className="p-2 text-text-secondary hover:text-accent transition-all active:scale-95"
-                        >
-                            {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
                         </button>
                     </div>
                 </div>
@@ -226,11 +195,9 @@ export const DigestPage: React.FC = () => {
                             />
                         ))}
                     </div>
-
                 </section>
             )}
 
-            {/* Загальний елемент для Infinite Scroll */}
             <div ref={lastElementRef} className="h-24 flex items-center justify-center mb-24">
                 {isRefreshing && (
                     <div className="flex flex-col items-center gap-2">

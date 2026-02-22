@@ -135,9 +135,9 @@ export const MyChannelsPage: React.FC = () => {
 
     return (
         <Layout>
-            <div className="p-4 pb-24 space-y-6">
+            <div className="pb-24 space-y-6">
                 {/* Back Button & Title */}
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between px-2">
                     <div className="flex items-center space-x-4">
                         <button
                             onClick={() => navigate('/catalog')}

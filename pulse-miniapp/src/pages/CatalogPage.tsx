@@ -63,15 +63,15 @@ export const CatalogPage: React.FC = () => {
 
     return (
         <Layout>
-            <div className="p-6 pb-24 space-y-8">
+            <div className="pb-24 space-y-8">
                 {/* Header Section */}
-                <div className="space-y-2">
+                <div className="px-2 space-y-1">
                     <motion.h1
                         initial={{ x: -20, opacity: 0 }}
                         animate={{ x: 0, opacity: 1 }}
-                        className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent"
+                        className="text-4xl font-black text-text-primary"
                     >
-                        Каталог Pulse
+                        Каталог
                     </motion.h1>
                     <motion.p
                         initial={{ x: -20, opacity: 0 }}
