@@ -3,6 +3,7 @@ import { DigestPage } from './pages/DigestPage';
 import { StoryPage } from './pages/StoryPage';
 import { CatalogPage } from './pages/CatalogPage';
 import { CategoryPage } from './pages/CategoryPage';
+import { MyChannelsPage } from './pages/MyChannelsPage';
 import { useThemeStore } from './store/themeStore';
 import { useEffect } from 'react';
 
@@ -20,6 +21,7 @@ function App() {
         <Route path="/" element={<DigestPage />} />
         <Route path="/story/:id" element={<StoryPage />} />
         <Route path="/catalog" element={<CatalogPage />} />
+        <Route path="/catalog/my" element={<MyChannelsPage />} />
         <Route path="/catalog/:category" element={<CategoryPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -95,7 +95,7 @@ export const CatalogPage: React.FC = () => {
                         variants={item}
                         whileHover={{ scale: 1.01 }}
                         whileTap={{ scale: 0.99 }}
-                        onClick={() => navigate('/channels')}
+                        onClick={() => navigate('/catalog/my')}
                         className="group relative p-5 bg-primary/10 backdrop-blur-xl border border-primary/30 rounded-2xl cursor-pointer hover:border-primary transition-all shadow-sm"
                     >
                         <div className="flex items-center justify-between">
