@@ -81,7 +81,7 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     },
 
     fetchChannels: async (category?: string) => {
-        set({ isLoading: true, error: null });
+        set({ channels: [], isLoading: true, error: null });
         try {
             const url = category ? `/catalog/channels?category=${encodeURIComponent(category)}` : '/catalog/channels';
             const response = await apiClient.get<ChannelCatalogItem[]>(url);
@@ -93,7 +93,7 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     },
 
     fetchMyChannels: async (userId: number) => {
-        set({ isLoading: true, error: null });
+        set({ channels: [], isLoading: true, error: null });
         try {
             const response = await apiClient.get<ChannelCatalogItem[]>(`/catalog/my-channels/${userId}`);
             set({ channels: response.data, isLoading: false });

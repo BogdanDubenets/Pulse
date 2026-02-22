@@ -23,7 +23,7 @@ function App() {
         <Route path="/story/:id" element={<StoryPage />} />
         <Route path="/catalog" element={<CatalogPage />} />
         <Route path="/catalog/my" element={<MyChannelsPage />} />
-        <Route path="/catalog/:categoryId" element={<CategoryPage />} />
+        <Route path="/catalog/:category" element={<CategoryPage />} />
         <Route path="/cabinet" element={<CabinetPlaceholder />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
