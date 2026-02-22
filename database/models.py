@@ -17,6 +17,10 @@ class Channel(Base):
     category: Mapped[Optional[str]] = mapped_column(String)
     credibility_score: Mapped[float] = mapped_column(Float, default=0.5)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_core: Mapped[bool] = mapped_column(Boolean, default=False)
+    partner_status: Mapped[str] = mapped_column(String, default="organic") # premium, pinned, organic
+    pinned_msg_id: Mapped[Optional[int]] = mapped_column(BigInteger)
+    posts_count_24h: Mapped[int] = mapped_column(Integer, default=0)
     last_scanned_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
@@ -34,6 +38,8 @@ class User(Base):
     morning_digest_time: Mapped[Optional[str]] = mapped_column(String, default="08:00") # "HH:MM"
     evening_digest_time: Mapped[Optional[str]] = mapped_column(String, default="20:00") # "HH:MM"
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    subscription_tier: Mapped[str] = mapped_column(String, default="demo") # demo, basic, standard, premium
+    subscription_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 class Story(Base):
@@ -80,4 +86,16 @@ class UserSubscription(Base):
     user_id: Mapped[int] = mapped_column(BigInteger, nullable=False) # Telegram User ID. Can be ForeignKey("users.id") but keeping loose for now to recognize existing data seamlessly
     # user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE")) 
     channel_id: Mapped[Optional[int]] = mapped_column(ForeignKey("channels.id", ondelete="CASCADE"))
+    last_changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+class Auction(Base):
+    __tablename__ = "auctions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    category: Mapped[str] = mapped_column(String, index=True)
+    current_bid: Mapped[int] = mapped_column(Integer, default=0) # В зірках
+    leader_user_id: Mapped[Optional[int]] = mapped_column(BigInteger) # Telegram User ID
+    channel_id: Mapped[Optional[int]] = mapped_column(ForeignKey("channels.id", ondelete="CASCADE"))
+    ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

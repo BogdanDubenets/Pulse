@@ -9,6 +9,7 @@ from database.connection import AsyncSessionLocal
 from database.models import UserSubscription
 from services.digest import get_user_digest
 from database.cleanup import cleanup_old_data
+from services.catalog_manager import recount_daily_posts
 from config.settings import config
 
 MORNING_HOUR = 8
@@ -33,6 +34,7 @@ async def run_scheduler(bot: Bot):
         # Очищення бази один раз на годину (наприклад, на 5-й хвилині)
         if now.minute == 5 and now.hour != last_cleanup_hour:
             await cleanup_old_data()
+            await recount_daily_posts()
             last_cleanup_hour = now.hour
             
         # Check if it is the target time (within the minute)

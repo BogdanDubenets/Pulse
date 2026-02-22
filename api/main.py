@@ -8,6 +8,8 @@ from services.digest import get_user_digest_data
 from pydantic import BaseModel
 from typing import List, Optional
 
+from api.routes import catalog, billing
+
 app = FastAPI(title="Pulse Mini App API", version="1.0.0")
 
 # CORS config allowing Telegram WebApp access
@@ -18,6 +20,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include routers
+app.include_router(catalog.router)
+app.include_router(billing.router)
 
 # Dependency to get DB session
 async def get_db():

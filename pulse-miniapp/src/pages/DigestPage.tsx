@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useDigestStore } from '../store';
 import { useThemeStore } from '../store/themeStore';
 import { Layout } from '../components/Layout';
@@ -19,6 +20,7 @@ export const DigestPage: React.FC = () => {
     const [selectedItem, setSelectedItem] = useState<Story | BriefNews | null>(null);
     const [offset, setOffset] = useState(0);
     const observer = useRef<IntersectionObserver | null>(null);
+    const navigate = useNavigate(); // Added useNavigate hook
 
     // UI State: 'category', 'time', or 'channel'
     const [groupBy, setGroupBy] = useState<'category' | 'time' | 'channel'>(
@@ -160,11 +162,18 @@ export const DigestPage: React.FC = () => {
                         <div className="w-px h-6 bg-border mx-1 self-center" />
 
                         <button
-                            onClick={toggleTheme}
-                            className="p-2 rounded-lg text-text-secondary hover:text-text-primary transition-all active:scale-90"
-                            title={theme === 'dark' ? 'Світла тема' : 'Темна тема'}
+                            onClick={() => navigate('/catalog')}
+                            className="p-2 text-text-secondary hover:text-primary transition-all active:scale-95"
+                            title="Каталог каналів"
                         >
-                            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+                            <LayoutGrid size={18} />
+                        </button>
+
+                        <button
+                            onClick={toggleTheme}
+                            className="p-2 text-text-secondary hover:text-accent transition-all active:scale-95"
+                        >
+                            {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
                         </button>
                     </div>
                 </div>

@@ -79,9 +79,26 @@ export interface StoryDetail {
     timeline: PublicationDetail[];
 }
 
+export interface CatalogCategory {
+    name: string;
+    channels_count: number;
+}
+
+export interface ChannelCatalogItem {
+    id: number;
+    username?: string;
+    title: string;
+    category?: string;
+    partner_status: 'premium' | 'pinned' | 'organic';
+    posts_count_24h: number;
+    is_core: boolean;
+}
+
 export interface User {
     id: number;
     first_name: string;
     username?: string;
     language_code?: string;
+    subscription_tier: 'demo' | 'basic' | 'standard' | 'premium';
+    subscription_expires_at?: string;
 }

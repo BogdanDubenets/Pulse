@@ -1,0 +1,136 @@
+import asyncio
+import sys
+import os
+from telethon import TelegramClient
+from telethon.tl.functions.channels import GetFullChannelRequest
+from sqlalchemy import select
+
+# Додаємо кореневу директорію до path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from database.connection import AsyncSessionLocal
+from database.models import Channel
+from config.settings import config
+from loguru import logger
+
+# Список базових каналів (username, category, title)
+CORE_CHANNELS = [
+    # Новини / Політика
+    ("lachentyt", "📰 Події", "Лачен пише"),
+    ("truexanewsua", "🏛 Політика", "Труха⚡️Україна"),
+    ("uniannet", "🪖 Війна", "УНІАН"),
+    ("insiderUKR", "🏛 Політика", "Украина Сейчас"),
+    ("ukrpravda_news", "📰 Події", "Українська правда"),
+    ("radiosvoboda", "🏛 Політика", "Радіо Свобода"),
+    ("suspilnenews", "📰 Події", "Суспільне Новини"),
+    ("babel", "📰 Події", "Бабель"),
+    ("tsnuap", "📰 Події", "ТСН"),
+    ("rbc_ukraine", "📰 Події", "РБК-Україна"),
+    ("nvua_official", "🏛 Політика", "NV"),
+    ("hromadske_ua", "📰 Події", "Hromadske"),
+    ("bbcukrainian", "📰 Події", "BBC News Україна"),
+    ("ukrinform", "📰 Події", "Укрінформ"),
+    ("censor_net", "🏛 Політика", "Цензор.НЕТ"),
+    ("V_Zelenskiy_official", "🏛 Політика", "Володимир Зеленський"),
+    ("CinCUA", "🪖 Війна", "Головнокомандувач ЗСУ"),
+    ("mvs_ukraine", "📰 Події", "МВС України"),
+    ("dsns_telegram", "📰 Події", "ДСНС України"),
+    ("ukrenergo", "💡 Енергетика", "Укренерго"),
+    ("dtek_ua", "💡 Енергетика", "ДТЕК"),
+    ("energoatom_ua", "💡 Енергетика", "Енергоатом"),
+    ("epravda", "💰 Бізнес", "Економічна правда"),
+    ("ainua", "💻 Технології", "AIN.UA"),
+    ("doucommunity", "💻 Технології", "DOU"),
+    ("itc_ua", "💻 Технології", "ITC.ua"),
+    ("forbesukraine", "💰 Бізнес", "Forbes Ukraine"),
+    ("liga_net", "💰 Бізнес", "LIGA.net"),
+    ("devua", "💻 Технології", "dev.ua"),
+    ("DeepStateUA", "🪖 Війна", "DeepState"),
+    ("pravda_gerashchenko", "🪖 Війна", "Антон Геращенко"),
+    ("berezoview", "🏛 Політика", "Березовий сік"),
+    ("yigal_levin", "🪖 Війна", "Ігаль Левін"),
+    ("truexakyiv", "📍 Київ", "Труха⚡️Київ"),
+    ("h_kyiv", "📍 Київ", "Хуйовий Київ"),
+    ("kievoperativ", "📍 Київ", "Київ Оперативний"),
+    ("kyiv_n", "📍 Київ", "Київ Наживо"),
+    ("svitlobot_a22", "📍 Київ", "СвітлоБот"),
+    ("nevzorovtv", "🏛 Політика", "НЕВЗОРОВ"),
+    ("dubinskypro", "🏛 Політика", "Dubinsky.pro"),
+    ("mosiychuk72", "🏛 Політика", "Ігор Мосійчук"),
+    ("GordonUa", "🏛 Політика", "Дмитро Гордон"),
+    ("pryamiy", "🏛 Політика", "Прямий"),
+    ("espresotv", "📰 Події", "Еспресо"),
+    ("kanal_5", "🏛 Політика", "5 канал"),
+    ("focus_ua", "📰 Події", "Фокус"),
+    ("korrespondent_net", "📰 Події", "Кореспондент"),
+    ("kyivindependent", "🌍 English", "The Kyiv Independent"),
+    ("spravdi", "🛰 Інфофронт", "SPRAVDI"),
+    ("ukraine_now", "🛰 Інфофронт", "Ukraine NOW"),
+]
+
+async def init_core_with_ids():
+    from telethon.sessions import StringSession
+    
+    # Використовуємо StringSession якщо вона є в .env
+    session_str = os.getenv("TELETHON_SESSION")
+    client = TelegramClient(StringSession(session_str), config.API_ID, config.API_HASH)
+    
+    await client.start()
+    
+    async with AsyncSessionLocal() as db_session:
+        logger.info(f"Розпочато резолв {len(CORE_CHANNELS)} каналів...")
+        
+        added = 0
+        updated = 0
+        errors = 0
+        
+        for username, category, title in CORE_CHANNELS:
+            try:
+                # Перевіримо чи є вже в БД
+                stmt = select(Channel).where(Channel.username == username)
+                res = await db_session.execute(stmt)
+                channel = res.scalar_one_or_none()
+                
+                if channel:
+                    channel.is_core = True
+                    channel.category = category
+                    channel.title = title
+                    updated += 1
+                    continue
+
+                # Резолвимо ID через Telethon
+                entity = await client.get_entity(username)
+                telegram_id = entity.id
+                
+                # Потрібно додати префікс -100 для каналів у Telethon ID
+                if not str(telegram_id).startswith("-100"):
+                    # У Telethon ID каналів зазвичай позитивний, але для бота потрібен -100
+                    telegram_id = int(f"-100{telegram_id}")
+
+                new_channel = Channel(
+                    telegram_id=telegram_id,
+                    username=username,
+                    title=title,
+                    category=category,
+                    is_core=True,
+                    is_active=True,
+                    partner_status="organic"
+                )
+                db_session.add(new_channel)
+                added += 1
+                logger.info(f"Додано: {username} (ID: {telegram_id})")
+                
+                # Пауза для уникнення FloodWait
+                await asyncio.sleep(1)
+                
+            except Exception as e:
+                logger.error(f"Помилка для {username}: {e}")
+                errors += 1
+                
+        await db_session.commit()
+    
+    await client.disconnect()
+    logger.info(f"Завершено. Додано: {added}, Оновлено: {updated}, Помилок: {errors}")
+
+if __name__ == "__main__":
+    asyncio.run(init_core_with_ids())
