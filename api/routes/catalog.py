@@ -222,9 +222,34 @@ async def add_custom_channel(req: CustomChannelRequest, db: AsyncSession = Depen
     
     return {"status": "ok", "message": "Канал успішно додано до ваших підписок"}
 
+# Simple in-memory cache for file paths to reduce Telegram API calls
+# telegram_id -> {"path": str, "expiry": datetime}
+photo_path_cache = {}
+
 @router.get("/photo/{telegram_id}")
 async def get_channel_photo(telegram_id: int):
-    """Проксі для отримання фото каналу через Telegram Bot API"""
+    """Проксі для отримання фото каналу через Telegram Bot API з кешуванням"""
+    # 1. Перевірка кешу
+    now = datetime.now()
+    if telegram_id in photo_path_cache:
+        cached = photo_path_cache[telegram_id]
+        if now < cached["expiry"]:
+            file_path = cached["path"]
+            token = config.BOT_TOKEN.get_secret_value()
+            photo_url = f"https://api.telegram.org/file/bot{token}/{file_path}"
+            
+            async def stream_file():
+                async with httpx.AsyncClient() as s_client:
+                    async with s_client.stream("GET", photo_url) as r:
+                        if r.status_code == 200:
+                            async for chunk in r.aiter_bytes():
+                                yield chunk
+                        else:
+                            # Якщо шлях застарів (наприклад, Telegram видалив файл), зачищаємо кеш
+                            photo_path_cache.pop(telegram_id, None)
+
+            return StreamingResponse(stream_file(), media_type="image/jpeg")
+
     token = config.BOT_TOKEN.get_secret_value()
     async with httpx.AsyncClient() as client:
         # 1. Get Chat to find big photo file_id
@@ -246,7 +271,13 @@ async def get_channel_photo(telegram_id: int):
         
         file_path = file_resp.json().get("result", {}).get("file_path")
         
-        # 3. Stream from Telegram
+        # 3. Update Cache (valid for 24 hours)
+        photo_path_cache[telegram_id] = {
+            "path": file_path,
+            "expiry": now + timedelta(hours=24)
+        }
+        
+        # 4. Stream from Telegram
         photo_url = f"https://api.telegram.org/file/bot{token}/{file_path}"
         
         async def stream_file():

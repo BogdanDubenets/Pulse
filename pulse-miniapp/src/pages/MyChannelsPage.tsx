@@ -210,10 +210,14 @@ export const MyChannelsPage: React.FC = () => {
                                 <div className="relative">
                                     <div className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-border to-surface flex items-center justify-center text-xl font-bold border border-border">
                                         {ch.avatar_url ? (
-                                            <img
+                                            <motion.img
+                                                initial={{ opacity: 0 }}
+                                                animate={{ opacity: 1 }}
+                                                transition={{ duration: 0.3 }}
                                                 src={`${import.meta.env.VITE_API_URL || ''}${ch.avatar_url}`}
                                                 alt={ch.title}
                                                 className="w-full h-full object-cover"
+                                                loading="lazy"
                                                 onError={(e) => {
                                                     (e.target as HTMLImageElement).src = '';
                                                     (e.target as HTMLImageElement).style.display = 'none';
