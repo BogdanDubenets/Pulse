@@ -2,23 +2,58 @@ import { create } from 'zustand';
 import type { CatalogCategory, ChannelCatalogItem } from '../types';
 import { apiClient } from '../api/client';
 
+export interface UserStatus {
+    tier: string;
+    sub_count: number;
+    limit: number;
+    can_add: boolean;
+}
+
 interface CatalogState {
     categories: CatalogCategory[];
     channels: ChannelCatalogItem[];
+    userStatus: UserStatus | null;
     isLoading: boolean;
     error: string | null;
 
     fetchCategories: () => Promise<void>;
     fetchChannels: (category?: string) => Promise<void>;
     fetchMyChannels: (userId: number) => Promise<void>;
+    fetchUserStatus: (userId: number) => Promise<void>;
+    addCustomChannel: (userId: number, url: string) => Promise<{ success: boolean; message: string }>;
     placeBid: (userId: number, channelId: number, category: string, amount: number) => Promise<boolean>;
 }
 
-export const useCatalogStore = create<CatalogState>((set) => ({
+export const useCatalogStore = create<CatalogState>((set, get) => ({
     categories: [],
     channels: [],
+    userStatus: null,
     isLoading: false,
     error: null,
+
+    fetchUserStatus: async (userId: number) => {
+        try {
+            const response = await apiClient.get<UserStatus>(`/catalog/user/status/${userId}`);
+            set({ userStatus: response.data });
+        } catch (error) {
+            console.error('Failed to fetch user status:', error);
+        }
+    },
+
+    addCustomChannel: async (userId: number, url: string) => {
+        set({ isLoading: true, error: null });
+        try {
+            const response = await apiClient.post('/catalog/add-custom-channel', { user_id: userId, url });
+            await get().fetchUserStatus(userId);
+            await get().fetchMyChannels(userId);
+            set({ isLoading: false });
+            return { success: true, message: response.data.message };
+        } catch (error: any) {
+            const message = error.response?.data?.detail || 'Помилка додавання каналу';
+            set({ isLoading: false });
+            return { success: false, message };
+        }
+    },
 
     fetchCategories: async () => {
         set({ isLoading: true, error: null });

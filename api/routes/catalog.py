@@ -2,12 +2,20 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.connection import AsyncSessionLocal
-from database.models import Channel, Auction, User
-from pydantic import BaseModel
+from database.models import Channel, Auction, User, UserSubscription
+from pydantic import BaseModel, HttpUrl
 from typing import List, Optional
 from datetime import datetime
+import httpx
+from config.settings import config
 
 router = APIRouter(prefix="/api/v1/catalog", tags=["catalog"])
+
+# --- Pydantic Models ---
+
+class CustomChannelRequest(BaseModel):
+    user_id: int
+    url: str  # t.me/username or @username
 
 # Dependency to get DB session
 async def get_db():
@@ -121,5 +129,85 @@ async def place_bid(bid: AuctionBidRequest, db: AsyncSession = Depends(get_db)):
         )
         db.add(new_auction)
         
+@router.get("/user/status/{user_id}")
+async def get_user_status(user_id: int, db: AsyncSession = Depends(get_db)):
+    """Отримати статус підписки та кількість каналів"""
+    user_res = await db.execute(select(User).where(User.id == user_id))
+    user = user_res.scalar_one_or_none()
+    
+    if not user:
+        # Створити юзера якщо немає (базовий кейс)
+        user = User(id=user_id, subscription_tier="demo")
+        db.add(user)
+        await db.commit()
+    
+    sub_count_res = await db.execute(
+        select(func.count(UserSubscription.id)).where(UserSubscription.user_id == user_id)
+    )
+    sub_count = sub_count_res.scalar() or 0
+    
+    # Визначаємо ліміти
+    limits = {
+        "demo": 3,
+        "basic": 10,
+        "standard": 25,
+        "premium": 999
+    }
+    
+    return {
+        "tier": user.subscription_tier,
+        "sub_count": sub_count,
+        "limit": limits.get(user.subscription_tier, 3),
+        "can_add": sub_count < limits.get(user.subscription_tier, 3)
+    }
+
+@router.post("/add-custom-channel")
+async def add_custom_channel(req: CustomChannelRequest, db: AsyncSession = Depends(get_db)):
+    """Додати власний канал за посиланням"""
+    # 1. Перевірка лімітів
+    status = await get_user_status(req.user_id, db)
+    if not status["can_add"]:
+        raise HTTPException(status_code=403, detail=f"Ви досягли ліміту ({status['limit']} каналів) для вашого плану")
+
+    # 2. Парсинг username
+    username = req.url.replace("https://t.me/", "").replace("@", "").split("/")[0]
+    
+    # 3. Валідація через Telegram Bot API
+    token = config.BOT_TOKEN.get_secret_value()
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(f"https://api.telegram.org/bot{token}/getChat?chat_id=@{username}")
+        if resp.status_code != 200:
+            raise HTTPException(status_code=400, detail="Канал не знайдено або він приватний")
+        
+        chat_data = resp.json().get("result", {})
+    
+    # 4. Перевірка чи є канал в базі
+    stmt = select(Channel).where(Channel.telegram_id == chat_data["id"])
+    res = await db.execute(stmt)
+    channel = res.scalar_one_or_none()
+    
+    if not channel:
+        channel = Channel(
+            telegram_id=chat_data["id"],
+            username=chat_data.get("username"),
+            title=chat_data.get("title", "Unknown"),
+            category="Custom",
+            is_core=False
+        )
+        db.add(channel)
+        await db.flush()
+    
+    # 5. Підписка
+    sub_stmt = select(UserSubscription).where(
+        UserSubscription.user_id == req.user_id,
+        UserSubscription.channel_id == channel.id
+    )
+    sub_res = await db.execute(sub_stmt)
+    if sub_res.scalar_one_or_none():
+        return {"status": "ok", "message": "Ви вже підписані на цей канал"}
+    
+    new_sub = UserSubscription(user_id=req.user_id, channel_id=channel.id)
+    db.add(new_sub)
     await db.commit()
-    return {"status": "ok", "message": "Ставку прийнято"}
+    
+    return {"status": "ok", "message": "Канал успішно додано до ваших підписок"}
