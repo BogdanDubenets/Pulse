@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { useCatalogStore } from '../store/catalogStore';
+import { API_ORIGIN } from '../api/client';
 import {
     ArrowLeft,
     ExternalLink,
@@ -70,6 +71,7 @@ export const MyChannelsPage: React.FC = () => {
     const [isSubscribing, setIsSubscribing] = useState(false);
     const [selectedTier, setSelectedTier] = useState('standard');
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+    const [imgErrors, setImgErrors] = useState<Record<number, boolean>>({});
 
     const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 461874849;
 
@@ -209,24 +211,22 @@ export const MyChannelsPage: React.FC = () => {
                             <div className="flex items-center space-x-4">
                                 <div className="relative">
                                     <div className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-border to-surface flex items-center justify-center text-xl font-bold border border-border">
-                                        {ch.avatar_url ? (
+                                        {ch.avatar_url && !imgErrors[ch.id] ? (
                                             <motion.img
                                                 initial={{ opacity: 0 }}
                                                 animate={{ opacity: 1 }}
                                                 transition={{ duration: 0.3 }}
-                                                src={`${import.meta.env.VITE_API_URL || ''}${ch.avatar_url}`}
+                                                src={`${API_ORIGIN}${ch.avatar_url}`}
                                                 alt={ch.title}
                                                 className="w-full h-full object-cover"
                                                 loading="lazy"
-                                                onError={(e) => {
-                                                    (e.target as HTMLImageElement).src = '';
-                                                    (e.target as HTMLImageElement).style.display = 'none';
+                                                onError={() => {
+                                                    setImgErrors(prev => ({ ...prev, [ch.id]: true }));
                                                 }}
                                             />
                                         ) : (
                                             ch.title.charAt(0)
                                         )}
-                                        {!ch.avatar_url && ch.title.charAt(0)}
                                     </div>
                                     {ch.partner_status === 'premium' && (
                                         <div className="absolute -top-1 -right-1 bg-primary p-1 rounded-full border-2 border-surface">

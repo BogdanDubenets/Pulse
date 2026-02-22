@@ -271,10 +271,10 @@ async def get_channel_photo(telegram_id: int):
         
         file_path = file_resp.json().get("result", {}).get("file_path")
         
-        # 3. Update Cache (valid for 24 hours)
+        # 3. Update Cache (valid for 30 days)
         photo_path_cache[telegram_id] = {
             "path": file_path,
-            "expiry": now + timedelta(hours=24)
+            "expiry": now + timedelta(days=30)
         }
         
         # 4. Stream from Telegram
