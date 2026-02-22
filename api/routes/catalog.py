@@ -260,7 +260,12 @@ async def get_channel_photo(telegram_id: int):
     token = config.BOT_TOKEN.get_secret_value()
     async with httpx.AsyncClient() as client:
         # 1. Get Chat to find big photo file_id
-        chat_resp = await client.get(f"https://api.telegram.org/bot{token}/getChat?chat_id={telegram_id}")
+        # Normalize ID: Channels must start with -100
+        chat_id = telegram_id
+        if chat_id > 0:
+            chat_id = int(f"-100{chat_id}")
+            
+        chat_resp = await client.get(f"https://api.telegram.org/bot{token}/getChat?chat_id={chat_id}")
         if chat_resp.status_code != 200:
             raise HTTPException(status_code=404, detail="Чат не знайдено")
         
