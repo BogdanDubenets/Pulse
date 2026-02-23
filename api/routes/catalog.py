@@ -35,7 +35,7 @@ class ChannelCatalogItem(BaseModel):
     username: Optional[str]
     title: str
     category: Optional[str]
-    is_core: bool
+    is_core: bool = False
     avatar_url: Optional[str] = None
     is_subscribed: bool = False
     is_limit_active: bool = True
@@ -177,11 +177,12 @@ async def get_my_channels(user_id: int, db: AsyncSession = Depends(get_db)):
     if current_count < user_limit:
         for i in range(current_count, user_limit):
             channels.append(ChannelCatalogItem(
-                id=-1 - i, # Від'ємний ID для унікальності заглушок
+                id=-1 - i,
                 title=f"Слот #{i+1} (Порожній)",
                 is_placeholder=True,
                 is_limit_active=True,
-                position=i
+                position=i,
+                is_core=False
             ))
 
     return channels
