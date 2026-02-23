@@ -353,9 +353,9 @@ async def get_user_status(user_id: int, db: AsyncSession = Depends(get_db)):
     # Визначаємо ліміти
     limits = {
         "demo": 3,
-        "basic": 10,
-        "standard": 25,
-        "premium": 999
+        "basic": 6,
+        "standard": 10,
+        "premium": 15
     }
     
     user_tier = user.subscription_tier
