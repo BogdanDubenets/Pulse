@@ -155,9 +155,9 @@ async def get_channels(
         if ch.partner_expires_at and ch.partner_expires_at.replace(tzinfo=timezone.utc) < now:
             effective_status = "organic"
         
-        # Якщо це переможець аукціону — ставимо статус premium (або спеціальний)
+        # Якщо це переможець аукціону — ставимо окремий статус auction
         if ch.id == auction_channel_id:
-            effective_status = "premium"
+            effective_status = "auction"
 
         channels.append(ChannelCatalogItem(
             id=ch.id,

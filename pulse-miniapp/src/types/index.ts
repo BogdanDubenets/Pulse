@@ -89,7 +89,7 @@ export interface ChannelCatalogItem {
     username?: string;
     title: string;
     category?: string;
-    partner_status: 'premium' | 'pinned' | 'organic';
+    partner_status: 'premium' | 'pinned' | 'organic' | 'auction';
     posts_count_24h: number;
     is_core: boolean;
     avatar_url?: string;

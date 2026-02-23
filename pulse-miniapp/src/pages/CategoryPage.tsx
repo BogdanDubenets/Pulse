@@ -16,8 +16,79 @@ import {
     Check,
     LayoutGrid,
     Bookmark,
-    UserCog
+    UserCog,
+    ChevronRight,
+    Sparkles
 } from 'lucide-react';
+
+// Допоміжний компонент для слотів
+const PromotionSlot: React.FC<{
+    type: 'auction' | 'premium' | 'pinned';
+    title: string;
+    channel?: any;
+    onDetail: () => void;
+}> = ({ type, title, channel, onDetail }) => {
+    return (
+        <div className="space-y-3">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-text-muted px-1 flex items-center gap-2">
+                {type === 'auction' && <Trophy className="w-3 h-3 text-accent" />}
+                {type === 'premium' && <Sparkles className="w-3 h-3 text-primary" />}
+                {type === 'pinned' && <Pin className="w-3 h-3 text-secondary" />}
+                {title}
+            </h3>
+
+            {channel ? (
+                <div className={`p-4 bg-surface border rounded-2xl flex items-center justify-between transition-all ${type === 'auction' ? 'border-accent bg-gradient-to-br from-surface to-accent/5 shadow-lg shadow-accent/10' :
+                        type === 'premium' ? 'border-primary bg-gradient-to-br from-surface to-primary/5 shadow-lg shadow-primary/5' :
+                            'border-secondary/30 bg-gradient-to-br from-surface to-secondary/5'
+                    }`}>
+                    <div className="flex items-center space-x-4">
+                        <div className="relative">
+                            <div className="w-12 h-12 rounded-full overflow-hidden bg-surface-secondary border border-border flex items-center justify-center font-bold">
+                                {channel.avatar_url ? (
+                                    <img src={`${API_ORIGIN}${channel.avatar_url}`} alt={channel.title} className="w-full h-full object-cover" />
+                                ) : channel.title.charAt(0)}
+                            </div>
+                            <div className={`absolute -top-1 -right-1 p-1 rounded-full border-2 border-surface ${type === 'auction' ? 'bg-accent' : type === 'premium' ? 'bg-primary' : 'bg-secondary'
+                                }`}>
+                                {type === 'auction' && <Trophy className="w-2 h-2 text-background fill-current" />}
+                                {type === 'premium' && <Zap className="w-2 h-2 text-white fill-current" />}
+                                {type === 'pinned' && <Pin className="w-2 h-2 text-white" />}
+                            </div>
+                        </div>
+                        <div>
+                            <p className="font-bold text-sm truncate max-w-[150px]">{channel.title}</p>
+                            <p className="text-[10px] text-text-muted">@{channel.username}</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <a
+                            href={`https://t.me/${channel.username}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="p-2 bg-surface/50 border border-border rounded-xl"
+                        >
+                            <ExternalLink size={16} className="text-text-muted" />
+                        </a>
+                    </div>
+                </div>
+            ) : (
+                <div className="p-5 bg-surface/20 border-2 border-dashed border-border/50 rounded-2xl flex flex-col items-center justify-center text-center space-y-2 py-8">
+                    <p className="text-xs font-bold text-text-muted opacity-50 uppercase tracking-wider">Слот вільний</p>
+                    <p className="text-[10px] text-text-muted max-w-[200px]">Цей слот ({title.split(':')[0]}) чекає на ваш канал</p>
+                </div>
+            )}
+
+            <button
+                onClick={onDetail}
+                className="w-full py-2.5 bg-surface/40 hover:bg-surface-secondary text-text-secondary text-[11px] font-black uppercase tracking-widest rounded-xl border border-border/50 transition-all flex items-center justify-center gap-2 group"
+            >
+                <span>Докладніше про {title.split(' ')[1]}</span>
+                <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+            </button>
+        </div>
+    );
+};
 
 export const CategoryPage: React.FC = () => {
     const { category } = useParams<{ category: string }>();
@@ -95,25 +166,36 @@ export const CategoryPage: React.FC = () => {
                     </div>
                 </header>
 
-                {/* Info Bar if no highlighted top slots */}
-                {!channels.some(ch => ch.partner_status === 'premium') && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="p-3 bg-surface/50 border border-border rounded-xl flex items-center justify-between text-xs"
-                    >
-                        <div className="flex items-center space-x-2 text-text-muted">
-                            <Trophy className="w-4 h-4 text-accent" />
-                            <span>Ця категорія відкрита для просування</span>
-                        </div>
-                        <button
-                            onClick={() => navigate('/cabinet')}
-                            className="text-primary font-bold hover:underline"
-                        >
-                            Докладніше
-                        </button>
-                    </motion.div>
-                )}
+                {/* Promotion Slots Section */}
+                <div className="grid grid-cols-1 gap-6 mb-8">
+                    {/* 1. Auction Slot */}
+                    <PromotionSlot
+                        type="auction"
+                        title="🏆 Аукціон: Top-1 Категорії"
+                        channel={channels.find(c => c.partner_status === 'auction')}
+                        onDetail={() => navigate('/cabinet', { state: { tab: 'auctions', category } })}
+                    />
+
+                    {/* 2. Premium Slot */}
+                    <PromotionSlot
+                        type="premium"
+                        title="💎 Premium Карусель"
+                        channel={channels.find(c => c.partner_status === 'premium')}
+                        onDetail={() => navigate('/cabinet', { state: { tab: 'promote', section: 'premium' } })}
+                    />
+
+                    {/* 3. Partner Slot */}
+                    <PromotionSlot
+                        type="pinned"
+                        title="🤝 Партнерська мережа"
+                        channel={channels.find(c => c.partner_status === 'pinned')}
+                        onDetail={() => navigate('/cabinet', { state: { tab: 'promote', section: 'partner' } })}
+                    />
+                </div>
+
+                <div className="h-px bg-border/50 mx-2" />
+
+                <h2 className="text-sm font-bold uppercase tracking-wider text-text-muted px-1">Усі канали</h2>
 
                 {/* Channels List */}
                 <div className="space-y-3">
@@ -123,9 +205,9 @@ export const CategoryPage: React.FC = () => {
                             initial={{ x: -20, opacity: 0 }}
                             animate={{ x: 0, opacity: 1 }}
                             transition={{ delay: index * 0.05 }}
-                            className={`p-4 bg-surface border rounded-2xl flex items-center justify-between transition-all ${index === 0 && ch.partner_status === 'premium'
-                                    ? 'border-accent shadow-lg shadow-accent/10 bg-gradient-to-br from-surface to-accent/5'
-                                    : (ch.partner_status === 'premium' ? 'border-primary shadow-lg shadow-primary/5' : 'border-border')
+                            className={`p-4 bg-surface border rounded-2xl flex items-center justify-between transition-all ${ch.partner_status === 'auction'
+                                ? 'border-accent shadow-lg shadow-accent/10 bg-gradient-to-br from-surface to-accent/5'
+                                : (ch.partner_status === 'premium' ? 'border-primary shadow-lg shadow-primary/5' : 'border-border')
                                 }`}
                         >
                             <div className="flex items-center space-x-4 flex-1 min-w-0">
@@ -148,7 +230,7 @@ export const CategoryPage: React.FC = () => {
                                             ch.title.charAt(0)
                                         )}
                                     </div>
-                                    {index === 0 && ch.partner_status === 'premium' ? (
+                                    {ch.partner_status === 'auction' ? (
                                         <div className="absolute -top-1 -right-1 bg-accent p-1 rounded-full border-2 border-surface animate-bounce-subtle">
                                             <Trophy className="w-3 h-3 text-background fill-current" />
                                         </div>

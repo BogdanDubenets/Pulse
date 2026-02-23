@@ -44,6 +44,13 @@ export const CabinetPage: React.FC = () => {
     useEffect(() => {
         fetchMyChannels(userId);
         loadAuctions();
+
+        // Обробка вхідного стану для перемикання табів
+        const state = (window as any).history?.state?.usr;
+        if (state?.tab) {
+            setActiveTab(state.tab);
+        }
+        // Можна також додати прокрутку до потрібної секції, якщо є state.section
     }, [userId]);
 
     const loadAuctions = async () => {
