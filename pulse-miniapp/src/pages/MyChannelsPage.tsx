@@ -24,7 +24,6 @@ import {
     Bookmark,
     UserCog,
     Clock,
-    GripVertical,
     Sparkles
 } from 'lucide-react';
 
