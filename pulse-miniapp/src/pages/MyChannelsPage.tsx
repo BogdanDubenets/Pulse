@@ -445,12 +445,19 @@ export const MyChannelsPage: React.FC = () => {
                                 onClick={() => setIsPaywallOpen(true)}
                                 className="flex-1 p-4 flex items-center space-x-3 cursor-pointer hover:bg-surface/80 active:bg-surface transition-colors group"
                             >
-                                <div className={`p-2 rounded-xl border transition-colors ${userStatus.sub_count > userStatus.limit
-                                    ? 'bg-error/20 border-error text-error animate-pulse'
-                                    : (userStatus.tier === 'premium' ? 'bg-primary/10 border-primary text-primary' : 'bg-surface border-border text-text-secondary')
-                                    }`}>
-                                    {userStatus.tier === 'premium' ? <Crown className="w-5 h-5" /> : <Zap className="w-5 h-5" />}
-                                </div>
+                                {(() => {
+                                    const currentPlan = PLANS.find(p => p.id === userStatus.tier);
+                                    return (
+                                        <div className={`p-2 rounded-xl border transition-all ${userStatus.sub_count > userStatus.limit
+                                            ? 'bg-error/20 border-error text-error animate-pulse shadow-lg shadow-error/10'
+                                            : currentPlan
+                                                ? `bg-gradient-to-br ${currentPlan.color} border-white/20 text-white shadow-lg shadow-primary/10`
+                                                : 'bg-surface border-border text-text-secondary'
+                                            }`}>
+                                            {currentPlan ? currentPlan.icon : <Zap className="w-5 h-5" />}
+                                        </div>
+                                    );
+                                })()}
                                 <div className="min-w-0">
                                     <p className={`text-[10px] uppercase font-bold tracking-wider ${userStatus.sub_count > userStatus.limit ? 'text-error animate-pulse' : 'text-text-muted'}`}>
                                         {userStatus.sub_count > userStatus.limit ? 'Ліміт перевищено' : 'Мій План'}
