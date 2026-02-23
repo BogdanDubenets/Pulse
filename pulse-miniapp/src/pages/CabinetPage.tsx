@@ -14,8 +14,10 @@ import {
     Star,
     Crown,
     Clock,
-    UserCog
+    UserCog,
+    ChevronLeft
 } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const PREMIUM_PLANS = [
     { days: 7, price: 1, label: '7 днів' },
@@ -41,17 +43,26 @@ export const CabinetPage: React.FC = () => {
 
     const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 461874849;
 
+    const location = useLocation();
+    const navigate = useNavigate();
+
     useEffect(() => {
         fetchMyChannels(userId);
         loadAuctions();
 
-        // Обробка вхідного стану для перемикання табів
-        const state = (window as any).history?.state?.usr;
+        // Обробка вхідного стану для перемикання табів та скролу
+        const state = location.state as any;
         if (state?.tab) {
             setActiveTab(state.tab);
+
+            if (state.section) {
+                setTimeout(() => {
+                    const el = document.getElementById(`section-${state.section}`);
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                }, 300);
+            }
         }
-        // Можна також додати прокрутку до потрібної секції, якщо є state.section
-    }, [userId]);
+    }, [userId, location.state]);
 
     const loadAuctions = async () => {
         const data = await fetchAuctions();
@@ -243,7 +254,7 @@ export const CabinetPage: React.FC = () => {
                             className="space-y-6"
                         >
                             {/* Premium Carousel Section */}
-                            <div className="space-y-4">
+                            <div className="space-y-4" id="section-premium">
                                 <div className="flex items-center space-x-2">
                                     <Crown className="w-5 h-5 text-primary" />
                                     <h3 className="font-bold">Premium Карусель (Tier 2)</h3>
@@ -271,7 +282,7 @@ export const CabinetPage: React.FC = () => {
                             </div>
 
                             {/* Partner Network Section */}
-                            <div className="space-y-4">
+                            <div className="space-y-4" id="section-partner">
                                 <div className="flex items-center space-x-2">
                                     <Pin className="w-5 h-5 text-secondary" />
                                     <h3 className="font-bold">Партнерська мережа (Tier 3)</h3>
