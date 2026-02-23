@@ -32,9 +32,9 @@ class CategoryResponse(BaseModel):
 
 class ChannelCatalogItem(BaseModel):
     id: int
-    username: Optional[str]
+    username: Optional[str] = None
     title: str
-    category: Optional[str]
+    category: Optional[str] = None
     is_core: bool = False
     avatar_url: Optional[str] = None
     is_subscribed: bool = False
