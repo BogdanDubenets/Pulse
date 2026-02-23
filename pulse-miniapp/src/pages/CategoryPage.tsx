@@ -193,32 +193,8 @@ export const CategoryPage: React.FC = () => {
                                             } else {
                                                 const result = await subscribeToChannel(userId, ch.id);
                                                 if (!result.success && result.errorCode === 403) {
-                                                    if (window.Telegram?.WebApp) {
-                                                        const webApp = window.Telegram.WebApp as any;
-                                                        if (webApp.isVersionAtLeast && webApp.isVersionAtLeast('6.2')) {
-                                                            webApp.showPopup({
-                                                                title: 'Ліміт підписок',
-                                                                message: 'Ви досягли ліміту підписок для вашого тарифу. Бажаєте оновити план?',
-                                                                buttons: [
-                                                                    { id: 'upgrade', type: 'default', text: 'Оновити план' },
-                                                                    { id: 'cancel', type: 'cancel', text: 'Пізніше' }
-                                                                ]
-                                                            }, (buttonId: string) => {
-                                                                if (buttonId === 'upgrade') {
-                                                                    navigate('/catalog/my');
-                                                                }
-                                                            });
-                                                        } else {
-                                                            // Fallback для старих версій Telegram
-                                                            if (confirm('Ліміт підписок вичерпано. Бажаєте перейти до керування планом?')) {
-                                                                navigate('/catalog/my');
-                                                            }
-                                                        }
-                                                    } else {
-                                                        if (confirm('Ліміт підписок вичерпано. Бажаєте перейти до керування планом?')) {
-                                                            navigate('/catalog/my');
-                                                        }
-                                                    }
+                                                    // Миттєвий редирект без зайвих запитань
+                                                    navigate('/catalog/my');
                                                     return;
                                                 }
                                             }
