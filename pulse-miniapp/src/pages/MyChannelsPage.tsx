@@ -30,7 +30,7 @@ const PLANS = [
     {
         id: 'basic',
         name: 'Basic',
-        price: 1,
+        price: 50,
         limit: 6,
         icon: <Zap className="w-5 h-5" />,
         color: 'from-blue-500 to-cyan-500',
@@ -39,7 +39,7 @@ const PLANS = [
     {
         id: 'standard',
         name: 'Standard',
-        price: 1,
+        price: 90,
         limit: 10,
         icon: <Star className="w-5 h-5" />,
         color: 'from-purple-500 to-pink-500',
@@ -49,7 +49,7 @@ const PLANS = [
     {
         id: 'premium',
         name: 'Premium',
-        price: 1,
+        price: 120,
         limit: 15,
         icon: <Crown className="w-5 h-5" />,
         color: 'from-amber-400 to-orange-500',

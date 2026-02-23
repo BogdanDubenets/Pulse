@@ -27,9 +27,9 @@ class InvoiceResponse(BaseModel):
 
 # Ціни в Telegram Stars
 TIER_PRICES = {
-    "basic": 1,
-    "standard": 1,
-    "premium": 1
+    "basic": 50,
+    "standard": 90,
+    "premium": 120
 }
 
 # --- Endpoints ---
