@@ -373,44 +373,53 @@ export const MyChannelsPage: React.FC = () => {
                     <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        whileHover={{ scale: 1.01 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={handleAddClick}
-                        className={`p-4 border backdrop-blur-md rounded-2xl flex items-center justify-between transition-all cursor-pointer group ${userStatus.sub_count > userStatus.limit
-                            ? 'bg-error/10 border-error/30 shadow-lg shadow-error/5 hover:bg-error/20'
-                            : 'bg-surface/50 border-border shadow-sm hover:border-primary/50'
+                        className={`border backdrop-blur-md rounded-2xl flex items-stretch transition-all overflow-hidden ${userStatus.sub_count > userStatus.limit
+                            ? 'bg-error/10 border-error/30 shadow-lg shadow-error/5'
+                            : 'bg-surface/50 border-border shadow-sm'
                             }`}
                     >
-                        <div className="flex items-center space-x-3">
+                        {/* Left: Subscription Info/Upgrade */}
+                        <div
+                            onClick={() => setIsPaywallOpen(true)}
+                            className="flex-1 p-4 flex items-center space-x-3 cursor-pointer hover:bg-surface/80 active:bg-surface transition-colors group"
+                        >
                             <div className={`p-2 rounded-xl border transition-colors ${userStatus.sub_count > userStatus.limit
                                 ? 'bg-error/20 border-error text-error animate-pulse'
                                 : (userStatus.tier === 'premium' ? 'bg-primary/10 border-primary text-primary' : 'bg-surface border-border text-text-secondary')
                                 }`}>
-                                {userStatus.sub_count > userStatus.limit ? <AlertCircle className="w-5 h-5" /> : <Zap className="w-5 h-5" />}
+                                {userStatus.tier === 'premium' ? <Crown className="w-5 h-5" /> : <Zap className="w-5 h-5" />}
                             </div>
-                            <div>
+                            <div className="min-w-0">
                                 <p className={`text-[10px] uppercase font-bold tracking-wider ${userStatus.sub_count > userStatus.limit ? 'text-error animate-pulse' : 'text-text-muted'}`}>
                                     {userStatus.sub_count > userStatus.limit ? 'Ліміт перевищено' : 'Мій План'}
                                 </p>
                                 <div className="flex items-center gap-2 leading-none pt-0.5">
-                                    <p className="font-bold capitalize">{userStatus.tier}</p>
-                                    {userStatus.expires_at && (
-                                        <span className="text-[9px] text-text-muted bg-surface-secondary px-1.5 py-0.5 rounded border border-border">
-                                            до {new Date(userStatus.expires_at).toLocaleDateString()}
-                                        </span>
-                                    )}
+                                    <p className="font-bold capitalize truncate">{userStatus.tier}</p>
+                                    <Sparkles className="w-3 h-3 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
                                 </div>
+                                {userStatus.expires_at && (
+                                    <p className="text-[8px] text-text-muted mt-1">
+                                        до {new Date(userStatus.expires_at).toLocaleDateString()}
+                                    </p>
+                                )}
                             </div>
                         </div>
 
-                        <div className="flex items-center space-x-4">
-                            <div className="text-right">
-                                <p className="text-[10px] uppercase font-bold tracking-wider text-text-muted">Зайнято слотів</p>
-                                <p className="font-bold text-lg">
+                        {/* Visual Divider */}
+                        <div className="w-px bg-border/50 self-center h-8" />
+
+                        {/* Right: Slots / Add Channel */}
+                        <div
+                            onClick={handleAddClick}
+                            className="p-4 flex items-center space-x-4 cursor-pointer hover:bg-surface/80 active:bg-surface transition-colors group"
+                        >
+                            <div className="text-right flex flex-col justify-center">
+                                <p className="text-[10px] uppercase font-bold tracking-wider text-text-muted whitespace-nowrap">Слоти</p>
+                                <p className="font-bold text-lg leading-tight">
                                     <span className={userStatus.sub_count > userStatus.limit ? 'text-error' : 'text-primary'}>
                                         {userStatus.sub_count}
                                     </span>
-                                    <span className="text-text-muted"> / {userStatus.limit}</span>
+                                    <span className="text-text-muted">/{userStatus.limit}</span>
                                 </p>
                             </div>
                             <div className={`p-2 rounded-xl transition-all ${userStatus.sub_count > userStatus.limit
