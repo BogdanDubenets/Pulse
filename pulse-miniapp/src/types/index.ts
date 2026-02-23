@@ -96,6 +96,8 @@ export interface ChannelCatalogItem {
     is_subscribed: boolean;
     is_limit_active?: boolean;
     can_unsubscribe_at?: string;
+    is_placeholder?: boolean;
+    position?: number;
 }
 
 export interface User {

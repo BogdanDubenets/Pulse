@@ -225,12 +225,19 @@ export const MyChannelsPage: React.FC = () => {
                                 <p className={`text-[10px] uppercase font-bold tracking-wider ${userStatus.sub_count > userStatus.limit ? 'text-error animate-pulse' : 'text-text-muted'}`}>
                                     {userStatus.sub_count > userStatus.limit ? 'Ліміт перевищено' : 'Мій План'}
                                 </p>
-                                <p className="font-bold capitalize leading-none pt-0.5">{userStatus.tier}</p>
+                                <div className="flex items-center gap-2 leading-none pt-0.5">
+                                    <p className="font-bold capitalize">{userStatus.tier}</p>
+                                    {userStatus.expires_at && (
+                                        <span className="text-[9px] text-text-muted bg-surface-secondary px-1.5 py-0.5 rounded border border-border">
+                                            до {new Date(userStatus.expires_at).toLocaleDateString()}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         </div>
                         <div className="text-right">
-                            <p className="text-[10px] uppercase font-bold tracking-wider text-text-muted">Ліміт каналів</p>
-                            <p className="font-bold">
+                            <p className="text-[10px] uppercase font-bold tracking-wider text-text-muted">Зайнято слотів</p>
+                            <p className="font-bold text-lg">
                                 <span className={userStatus.sub_count > userStatus.limit ? 'text-error' : 'text-primary'}>
                                     {userStatus.sub_count}
                                 </span>
@@ -247,8 +254,11 @@ export const MyChannelsPage: React.FC = () => {
                         values={channels}
                         onReorder={async (newOrder: typeof channels) => {
                             if (!userId) return;
-                            const channelIds = newOrder.map(ch => ch.id);
-                            const result = await reorderChannels(userId, channelIds);
+                            // Відфільтровуємо порожні слоти перед відправкою на бекенд
+                            const realChannelIds = newOrder
+                                .filter(ch => !ch.is_placeholder)
+                                .map(ch => ch.id);
+                            const result = await reorderChannels(userId, realChannelIds);
                             if (!result.success && result.message) {
                                 (window as any).Telegram?.WebApp?.showPopup?.({
                                     title: 'Обмеження',
@@ -275,6 +285,33 @@ export const MyChannelsPage: React.FC = () => {
                         )}
 
                         {channels.map((ch, index: number) => {
+                            if (ch.is_placeholder) {
+                                return (
+                                    <Reorder.Item
+                                        key={ch.id}
+                                        value={ch}
+                                        dragListener={false} // Порожні слоти не перетягуються
+                                        className="relative group bg-surface/30 border-2 border-dashed border-border/50 rounded-2xl p-4 transition-all hover:border-primary/50"
+                                    >
+                                        <div className="flex items-center space-x-4">
+                                            <div className="w-12 h-12 rounded-xl bg-surface-secondary/50 border border-dashed border-border flex items-center justify-center text-text-muted opacity-40">
+                                                <Plus size={24} />
+                                            </div>
+                                            <div className="flex-1">
+                                                <h3 className="font-bold text-text-secondary">Порожній слот</h3>
+                                                <p className="text-xs text-text-muted">Натисніть, щоб додати канал</p>
+                                            </div>
+                                            <button
+                                                onClick={handleAddClick}
+                                                className="p-2.5 bg-surface-secondary text-text-secondary border border-border rounded-xl hover:bg-primary hover:text-white transition-all shadow-sm"
+                                            >
+                                                <Plus size={20} />
+                                            </button>
+                                        </div>
+                                    </Reorder.Item>
+                                );
+                            }
+
                             const isActiveSlot = userStatus ? index < userStatus.limit : true;
                             const canUnsubscribeAt = ch.can_unsubscribe_at ? new Date(ch.can_unsubscribe_at) : null;
                             const isLocked = canUnsubscribeAt ? canUnsubscribeAt > new Date() : false;

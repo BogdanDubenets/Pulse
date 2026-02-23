@@ -41,6 +41,9 @@ class ChannelCatalogItem(BaseModel):
     is_limit_active: bool = True
     partner_status: str = "organic"
     posts_count_24h: int = 0
+    can_unsubscribe_at: Optional[str] = None
+    is_placeholder: bool = False # Для відображення порожніх слотів
+    position: Optional[int] = 0
 
 class AuctionBidRequest(BaseModel):
     user_id: int
@@ -165,8 +168,22 @@ async def get_my_channels(user_id: int, db: AsyncSession = Depends(get_db)):
             avatar_url=avatar,
             is_subscribed=True,
             is_limit_active=is_active_for_limit,
-            can_unsubscribe_at=can_unsubscribe_at
+            can_unsubscribe_at=can_unsubscribe_at,
+            position=idx
         ))
+    
+    # Додаємо порожні слоти (placeholders) до повного ліміту
+    current_count = len(channels)
+    if current_count < user_limit:
+        for i in range(current_count, user_limit):
+            channels.append(ChannelCatalogItem(
+                id=-1 - i, # Від'ємний ID для унікальності заглушок
+                title=f"Слот #{i+1} (Порожній)",
+                is_placeholder=True,
+                is_limit_active=True,
+                position=i
+            ))
+
     return channels
 
 class SubscribeRequest(BaseModel):
@@ -340,11 +357,20 @@ async def get_user_status(user_id: int, db: AsyncSession = Depends(get_db)):
         "premium": 999
     }
     
+    user_tier = user.subscription_tier
+    expires_at = None
+    if user.subscription_expires_at:
+        expires_at = user.subscription_expires_at.isoformat()
+        # Якщо підписка закінчилась — скидаємо на demo (візуально)
+        if user.subscription_expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+             user_tier = "demo"
+    
     return {
-        "tier": user.subscription_tier,
+        "tier": user_tier,
         "sub_count": sub_count,
-        "limit": limits.get(user.subscription_tier, 3),
-        "can_add": sub_count < limits.get(user.subscription_tier, 3)
+        "limit": limits.get(user_tier, 3),
+        "can_add": sub_count < limits.get(user_tier, 3),
+        "expires_at": expires_at
     }
 
 @router.post("/add-custom-channel")
