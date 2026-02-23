@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { useCatalogStore } from '../store/catalogStore';
@@ -245,7 +245,7 @@ export const MyChannelsPage: React.FC = () => {
                     <Reorder.Group
                         axis="y"
                         values={channels}
-                        onReorder={async (newOrder) => {
+                        onReorder={async (newOrder: typeof channels) => {
                             if (!userId) return;
                             const channelIds = newOrder.map(ch => ch.id);
                             const result = await reorderChannels(userId, channelIds);
@@ -274,7 +274,7 @@ export const MyChannelsPage: React.FC = () => {
                             </div>
                         )}
 
-                        {channels.map((ch, index) => {
+                        {channels.map((ch, index: number) => {
                             const isActiveSlot = userStatus ? index < userStatus.limit : true;
                             const canUnsubscribeAt = ch.can_unsubscribe_at ? new Date(ch.can_unsubscribe_at) : null;
                             const isLocked = canUnsubscribeAt ? canUnsubscribeAt > new Date() : false;

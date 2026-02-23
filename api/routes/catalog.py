@@ -199,8 +199,14 @@ async def subscribe(req: SubscribeRequest, db: AsyncSession = Depends(get_db)):
     if res.scalar_one_or_none():
         return {"status": "ok", "message": "Вже підписані"}
     
-    # 4. Додати підписку
-    new_sub = UserSubscription(user_id=req.user_id, channel_id=req.channel_id)
+    # 4. Визначити наступну позицію для користувача
+    pos_stmt = select(func.max(UserSubscription.position)).where(UserSubscription.user_id == req.user_id)
+    pos_res = await db.execute(pos_stmt)
+    max_pos = pos_res.scalar()
+    next_pos = (max_pos + 1) if max_pos is not None else 0
+
+    # 5. Додати підписку
+    new_sub = UserSubscription(user_id=req.user_id, channel_id=req.channel_id, position=next_pos)
     db.add(new_sub)
     await db.commit()
     return {"status": "ok", "message": "Успішно підписано"}
@@ -393,7 +399,13 @@ async def add_custom_channel(req: CustomChannelRequest, db: AsyncSession = Depen
     except Exception:
         pass
 
-    new_sub = UserSubscription(user_id=req.user_id, channel_id=channel.id)
+    # 7. Визначити наступну позицію
+    pos_stmt = select(func.max(UserSubscription.position)).where(UserSubscription.user_id == req.user_id)
+    pos_res = await db.execute(pos_stmt)
+    max_pos = pos_res.scalar()
+    next_pos = (max_pos + 1) if max_pos is not None else 0
+
+    new_sub = UserSubscription(user_id=req.user_id, channel_id=channel.id, position=next_pos)
     db.add(new_sub)
     await db.commit()
     
