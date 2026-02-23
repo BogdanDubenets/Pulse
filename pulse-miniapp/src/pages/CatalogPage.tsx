@@ -15,7 +15,10 @@ import {
     Music,
     Newspaper,
     Loader2,
-    Bookmark
+    Bookmark,
+    Landmark,
+    ShieldAlert,
+    Theater
 } from 'lucide-react';
 
 const categoryIcons: Record<string, any> = {
@@ -24,10 +27,28 @@ const categoryIcons: Record<string, any> = {
     '🎮 Ігри': Gamepad2,
     '🎵 Музика': Music,
     '📰 Новини': Newspaper,
+    '📰 Події': Newspaper,
     '🌍 Світ': Globe,
     '💎 Premium': Zap,
     '🛡️ Крипта': ShieldCheck,
+    '🎩 Політика': Landmark,
+    '🪖 Війна': ShieldAlert,
+    '🎭 Культура': Theater,
     'Мої канали': Bookmark,
+};
+
+const getCategoryIcon = (name: string) => {
+    if (categoryIcons[name]) return categoryIcons[name];
+    const n = name.toLowerCase();
+    if (n.includes('події') || n.includes('новини')) return Newspaper;
+    if (n.includes('політика')) return Landmark;
+    if (n.includes('війна')) return ShieldAlert;
+    if (n.includes('культура')) return Theater;
+    if (n.includes('спорт')) return TrendingUp;
+    if (n.includes('наука')) return Cpu;
+    if (n.includes('крипта')) return ShieldCheck;
+    if (n.includes('світ')) return Globe;
+    return LayoutGrid;
 };
 
 export const CatalogPage: React.FC = () => {
@@ -113,7 +134,7 @@ export const CatalogPage: React.FC = () => {
                     </motion.div>
 
                     {categories.map((cat) => {
-                        const Icon = categoryIcons[cat.name] || LayoutGrid;
+                        const Icon = getCategoryIcon(cat.name);
                         return (
                             <motion.div
                                 key={cat.name}
