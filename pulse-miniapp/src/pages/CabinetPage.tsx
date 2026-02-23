@@ -18,9 +18,9 @@ import {
 } from 'lucide-react';
 
 const PREMIUM_PLANS = [
-    { days: 7, price: 100, label: '7 днів' },
-    { days: 14, price: 180, label: '14 днів', popular: true },
-    { days: 30, price: 300, label: '30 днів' }
+    { days: 7, price: 1, label: '7 днів' },
+    { days: 14, price: 1, label: '14 днів', popular: true },
+    { days: 30, price: 1, label: '30 днів' }
 ];
 
 export const CabinetPage: React.FC = () => {
@@ -57,7 +57,7 @@ export const CabinetPage: React.FC = () => {
             return;
         }
         setIsProcessing(true);
-        const amount = auction.current_bid ? auction.current_bid + 10 : 50;
+        const amount = auction.current_bid ? auction.current_bid + 1 : 1;
         const success = await placeBid(userId, selectedChannel.id, auction.category, amount);
 
         if (success) {
