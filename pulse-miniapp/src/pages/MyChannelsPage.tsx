@@ -370,68 +370,75 @@ export const MyChannelsPage: React.FC = () => {
                 </header>
 
                 {/* Status Bar */}
-                {userStatus && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className={`border backdrop-blur-md rounded-2xl flex items-stretch transition-all overflow-hidden ${userStatus.sub_count > userStatus.limit
-                            ? 'bg-error/10 border-error/30 shadow-lg shadow-error/5'
-                            : 'bg-surface/50 border-border shadow-sm'
-                            }`}
-                    >
-                        {/* Left: Subscription Info/Upgrade */}
-                        <div
-                            onClick={() => setIsPaywallOpen(true)}
-                            className="flex-1 p-4 flex items-center space-x-3 cursor-pointer hover:bg-surface/80 active:bg-surface transition-colors group"
-                        >
-                            <div className={`p-2 rounded-xl border transition-colors ${userStatus.sub_count > userStatus.limit
-                                ? 'bg-error/20 border-error text-error animate-pulse'
-                                : (userStatus.tier === 'premium' ? 'bg-primary/10 border-primary text-primary' : 'bg-surface border-border text-text-secondary')
-                                }`}>
-                                {userStatus.tier === 'premium' ? <Crown className="w-5 h-5" /> : <Zap className="w-5 h-5" />}
-                            </div>
-                            <div className="min-w-0">
-                                <p className={`text-[10px] uppercase font-bold tracking-wider ${userStatus.sub_count > userStatus.limit ? 'text-error animate-pulse' : 'text-text-muted'}`}>
-                                    {userStatus.sub_count > userStatus.limit ? 'Ліміт перевищено' : 'Мій План'}
-                                </p>
-                                <div className="flex items-center gap-2 leading-none pt-0.5">
-                                    <p className="font-bold capitalize truncate">{userStatus.tier}</p>
-                                    <Sparkles className="w-3 h-3 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`border backdrop-blur-md rounded-2xl flex items-stretch transition-all overflow-hidden min-h-[72px] ${userStatus && userStatus.sub_count > userStatus.limit
+                        ? 'bg-error/10 border-error/30 shadow-lg shadow-error/5'
+                        : 'bg-surface/50 border-border shadow-sm'
+                        }`}
+                >
+                    {!userStatus ? (
+                        <div className="flex-1 flex items-center justify-center space-x-2 text-text-muted opacity-50">
+                            <Loader2 size={16} className="animate-spin" />
+                            <span className="text-xs">Завантаження статусу...</span>
+                        </div>
+                    ) : (
+                        <>
+                            {/* Left: Subscription Info/Upgrade */}
+                            <div
+                                onClick={() => setIsPaywallOpen(true)}
+                                className="flex-1 p-4 flex items-center space-x-3 cursor-pointer hover:bg-surface/80 active:bg-surface transition-colors group"
+                            >
+                                <div className={`p-2 rounded-xl border transition-colors ${userStatus.sub_count > userStatus.limit
+                                    ? 'bg-error/20 border-error text-error animate-pulse'
+                                    : (userStatus.tier === 'premium' ? 'bg-primary/10 border-primary text-primary' : 'bg-surface border-border text-text-secondary')
+                                    }`}>
+                                    {userStatus.tier === 'premium' ? <Crown className="w-5 h-5" /> : <Zap className="w-5 h-5" />}
                                 </div>
-                                {userStatus.expires_at && (
-                                    <p className="text-[8px] text-text-muted mt-1">
-                                        до {new Date(userStatus.expires_at).toLocaleDateString()}
+                                <div className="min-w-0">
+                                    <p className={`text-[10px] uppercase font-bold tracking-wider ${userStatus.sub_count > userStatus.limit ? 'text-error animate-pulse' : 'text-text-muted'}`}>
+                                        {userStatus.sub_count > userStatus.limit ? 'Ліміт перевищено' : 'Мій План'}
                                     </p>
-                                )}
+                                    <div className="flex items-center gap-2 leading-none pt-0.5">
+                                        <p className="font-bold capitalize truncate">{userStatus.tier || 'Free'}</p>
+                                        <Sparkles className="w-3 h-3 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    </div>
+                                    {userStatus.expires_at && (
+                                        <p className="text-[8px] text-text-muted mt-1">
+                                            до {new Date(userStatus.expires_at).toLocaleDateString()}
+                                        </p>
+                                    )}
+                                </div>
                             </div>
-                        </div>
 
-                        {/* Visual Divider */}
-                        <div className="w-px bg-border/50 self-center h-8" />
+                            {/* Visual Divider */}
+                            <div className="w-px bg-border/50 self-center h-8" />
 
-                        {/* Right: Slots / Add Channel */}
-                        <div
-                            onClick={handleAddClick}
-                            className="p-4 flex items-center space-x-4 cursor-pointer hover:bg-surface/80 active:bg-surface transition-colors group"
-                        >
-                            <div className="text-right flex flex-col justify-center">
-                                <p className="text-[10px] uppercase font-bold tracking-wider text-text-muted whitespace-nowrap">Слоти</p>
-                                <p className="font-bold text-lg leading-tight">
-                                    <span className={userStatus.sub_count > userStatus.limit ? 'text-error' : 'text-primary'}>
-                                        {userStatus.sub_count}
-                                    </span>
-                                    <span className="text-text-muted">/{userStatus.limit}</span>
-                                </p>
+                            {/* Right: Slots / Add Channel */}
+                            <div
+                                onClick={handleAddClick}
+                                className="p-4 flex items-center space-x-4 cursor-pointer hover:bg-surface/80 active:bg-surface transition-colors group"
+                            >
+                                <div className="text-right flex flex-col justify-center">
+                                    <p className="text-[10px] uppercase font-bold tracking-wider text-text-muted whitespace-nowrap">Слоти</p>
+                                    <p className="font-bold text-lg leading-tight">
+                                        <span className={userStatus.sub_count > userStatus.limit ? 'text-error' : 'text-primary'}>
+                                            {userStatus.sub_count}
+                                        </span>
+                                        <span className="text-text-muted">/{userStatus.limit}</span>
+                                    </p>
+                                </div>
+                                <div className={`p-2 rounded-xl transition-all ${userStatus.sub_count > userStatus.limit
+                                    ? 'bg-error text-white'
+                                    : 'bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white shadow-lg shadow-primary/10'
+                                    }`}>
+                                    <Plus className="w-5 h-5" />
+                                </div>
                             </div>
-                            <div className={`p-2 rounded-xl transition-all ${userStatus.sub_count > userStatus.limit
-                                ? 'bg-error text-white'
-                                : 'bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white shadow-lg shadow-primary/10'
-                                }`}>
-                                <Plus className="w-5 h-5" />
-                            </div>
-                        </div>
-                    </motion.div>
-                )}
+                        </>
+                    )}
+                </motion.div>
 
                 {/* Channels List */}
                 <div className="px-1">
