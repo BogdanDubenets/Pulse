@@ -136,10 +136,7 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
             await get().fetchUserStatus(userId);
             return { success: true };
         } catch (error: any) {
-            console.error('Failed to subscribe full error:', error);
             const errorCode = error.response?.status;
-            const errorDetail = error.response?.data?.detail;
-            console.log(`[Store] Subscription failed for channel ${channelId}. Status: ${errorCode}, Detail: ${errorDetail}`);
             return { success: false, errorCode };
         }
     },

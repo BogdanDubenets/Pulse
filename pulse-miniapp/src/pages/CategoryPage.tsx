@@ -192,13 +192,18 @@ export const CategoryPage: React.FC = () => {
                                                 await unsubscribeFromChannel(userId, ch.id);
                                             } else {
                                                 const result = await subscribeToChannel(userId, ch.id);
-                                                console.log(`[UI] Subscribe attempt for ${ch.title} (ID: ${ch.id}). Result:`, result);
                                                 if (!result.success && result.errorCode === 403) {
                                                     if (window.Telegram?.WebApp) {
-                                                        (window.Telegram.WebApp as any).showAlert(
-                                                            'Ліміт підписок вичерпано. Перейдіть до керування планом для розширення ліміту.',
-                                                            () => navigate('/catalog/my')
-                                                        );
+                                                        const webApp = window.Telegram.WebApp as any;
+                                                        if (webApp.isVersionAtLeast && webApp.isVersionAtLeast('6.2')) {
+                                                            webApp.showAlert(
+                                                                'Ліміт підписок вичерпано. Перейдіть до керування планом для розширення ліміту.',
+                                                                () => navigate('/catalog/my')
+                                                            );
+                                                        } else {
+                                                            alert('Ліміт підписок вичерпано. Перейдіть до керування планом.');
+                                                            navigate('/catalog/my');
+                                                        }
                                                     } else {
                                                         navigate('/catalog/my');
                                                     }
