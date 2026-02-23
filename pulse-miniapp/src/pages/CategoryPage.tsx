@@ -39,8 +39,8 @@ const PromotionSlot: React.FC<{
 
             {channel ? (
                 <div className={`p-4 bg-surface border rounded-2xl flex items-center justify-between transition-all ${type === 'auction' ? 'border-accent bg-gradient-to-br from-surface to-accent/5 shadow-lg shadow-accent/10' :
-                        type === 'premium' ? 'border-primary bg-gradient-to-br from-surface to-primary/5 shadow-lg shadow-primary/5' :
-                            'border-secondary/30 bg-gradient-to-br from-surface to-secondary/5'
+                    type === 'premium' ? 'border-primary bg-gradient-to-br from-surface to-primary/5 shadow-lg shadow-primary/5' :
+                        'border-secondary/30 bg-gradient-to-br from-surface to-secondary/5'
                     }`}>
                     <div className="flex items-center space-x-4">
                         <div className="relative">
@@ -167,7 +167,7 @@ export const CategoryPage: React.FC = () => {
                 </header>
 
                 {/* Promotion Slots Section */}
-                <div className="grid grid-cols-1 gap-6 mb-8">
+                <div className="grid grid-cols-1 gap-4 mb-8">
                     {/* 1. Auction Slot */}
                     <PromotionSlot
                         type="auction"
