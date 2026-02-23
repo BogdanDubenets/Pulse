@@ -23,7 +23,8 @@ import {
     Bookmark,
     UserCog,
     Clock,
-    GripVertical
+    GripVertical,
+    Sparkles
 } from 'lucide-react';
 
 const PLANS = [
