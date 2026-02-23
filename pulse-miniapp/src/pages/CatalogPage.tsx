@@ -18,7 +18,8 @@ import {
     Bookmark,
     Landmark,
     ShieldAlert,
-    Theater
+    Theater,
+    UserCog
 } from 'lucide-react';
 
 const categoryIcons: Record<string, any> = {
@@ -86,23 +87,52 @@ export const CatalogPage: React.FC = () => {
         <Layout>
             <div className="pb-24 space-y-8">
                 {/* Header Section */}
-                <div className="px-2 space-y-1">
-                    <motion.h1
-                        initial={{ x: -20, opacity: 0 }}
-                        animate={{ x: 0, opacity: 1 }}
-                        className="text-4xl font-black text-text-primary"
-                    >
-                        Каталог
-                    </motion.h1>
-                    <motion.p
-                        initial={{ x: -20, opacity: 0 }}
-                        animate={{ x: 0, opacity: 1 }}
-                        transition={{ delay: 0.1 }}
-                        className="text-text-secondary"
-                    >
-                        Найкращі Telegram-канали, відібрані для вас
-                    </motion.p>
-                </div>
+                <header className="mb-6 mt-2 px-1">
+                    <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                            <motion.h1
+                                initial={{ x: -20, opacity: 0 }}
+                                animate={{ x: 0, opacity: 1 }}
+                                className="text-3xl font-black text-text-primary flex items-center gap-2"
+                            >
+                                <img src="/pulse-logo.svg" alt="Pulse" className="w-9 h-9" />
+                                Каталог
+                            </motion.h1>
+                            <motion.p
+                                initial={{ x: -20, opacity: 0 }}
+                                animate={{ x: 0, opacity: 1 }}
+                                transition={{ delay: 0.1 }}
+                                className="text-sm text-text-secondary font-medium pl-11"
+                            >
+                                Найкращі Telegram-канали, відібрані для вас
+                            </motion.p>
+                        </div>
+
+                        <div className="flex p-1 bg-surface/40 backdrop-blur-md rounded-xl border border-border/50 shadow-sm">
+                            <button
+                                onClick={() => navigate('/catalog')}
+                                className="p-2 rounded-lg transition-all bg-primary text-text-primary shadow-lg shadow-primary/20"
+                                title="Каталог"
+                            >
+                                <LayoutGrid size={18} />
+                            </button>
+                            <button
+                                onClick={() => navigate('/my-channels')}
+                                className="p-2 rounded-lg transition-all text-text-secondary hover:text-text-primary"
+                                title="Мої канали"
+                            >
+                                <Bookmark size={18} />
+                            </button>
+                            <button
+                                onClick={() => navigate('/admin')}
+                                className="p-2 rounded-lg transition-all text-text-secondary hover:text-text-primary"
+                                title="Для адміністрування"
+                            >
+                                <UserCog size={18} />
+                            </button>
+                        </div>
+                    </div>
+                </header>
 
                 {/* Categories Grid */}
                 <motion.div
