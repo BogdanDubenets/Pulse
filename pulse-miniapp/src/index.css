@@ -20,6 +20,7 @@
   --success: #10B981;
   --warning: #F59E0B;
   --error: #EF4444;
+  --shimmer: rgba(255, 107, 107, 0.15);
 }
 
 .dark {
@@ -38,6 +39,7 @@
   --success: #00B894;
   --warning: #FDCB6E;
   --error: #D63031;
+  --shimmer: rgba(255, 255, 255, 0.08);
 }
 
 @theme {

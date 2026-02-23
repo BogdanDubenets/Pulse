@@ -65,7 +65,7 @@ const LockedSlot = ({ onClick, tier }: { onClick: () => void, tier?: string }) =
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             onClick={onClick}
-            className="relative group bg-surface/20 border-2 border-dashed border-border/30 rounded-2xl p-4 cursor-pointer hover:border-primary/50 transition-all overflow-hidden"
+            className="relative group bg-surface-secondary/50 dark:bg-surface/20 border-2 border-dashed border-border/60 dark:border-border/30 rounded-2xl p-4 cursor-pointer hover:border-primary/50 transition-all overflow-hidden shadow-sm dark:shadow-none"
         >
             {/* Shimmer Effect */}
             <div className="absolute inset-0 w-full h-full">
@@ -79,12 +79,12 @@ const LockedSlot = ({ onClick, tier }: { onClick: () => void, tier?: string }) =
                         ease: "linear",
                         repeatDelay: 5
                     }}
-                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent w-1/2 -skew-x-12"
+                    className="absolute inset-0 bg-gradient-to-r from-transparent via-[var(--shimmer)] to-transparent w-1/2 -skew-x-12"
                 />
             </div>
 
             <div className="flex items-center space-x-4 relative z-10">
-                <div className="w-12 h-12 rounded-xl bg-surface-secondary/30 border border-border/50 flex items-center justify-center text-primary/40 group-hover:text-primary transition-colors">
+                <div className="w-12 h-12 rounded-xl bg-surface/80 dark:bg-surface-secondary/30 border border-border/50 flex items-center justify-center text-primary/40 group-hover:text-primary transition-colors shadow-sm dark:shadow-none">
                     {tier === 'premium' ? <Crown size={24} /> : <Lock size={20} />}
                 </div>
                 <div className="flex-1">
