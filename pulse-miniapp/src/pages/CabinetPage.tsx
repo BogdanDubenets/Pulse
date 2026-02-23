@@ -14,8 +14,7 @@ import {
     Star,
     Crown,
     Clock,
-    UserCog,
-    ChevronLeft
+    UserCog
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -44,7 +43,6 @@ export const CabinetPage: React.FC = () => {
     const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 461874849;
 
     const location = useLocation();
-    const navigate = useNavigate();
 
     useEffect(() => {
         fetchMyChannels(userId);
