@@ -187,20 +187,28 @@ export const CategoryPage: React.FC = () => {
                                 <button
                                     onClick={async () => {
                                         setSubmittingIds(prev => ({ ...prev, [ch.id]: true }));
-                                        if (ch.is_subscribed) {
-                                            await unsubscribeFromChannel(userId, ch.id);
-                                        } else {
-                                            const result = await subscribeToChannel(userId, ch.id);
-                                            if (!result.success && result.errorCode === 403) {
-                                                // Відображаємо попередження та робимо редирект на сторінку оплати
-                                                if (window.Telegram?.WebApp) {
-                                                    (window.Telegram.WebApp as any).showAlert('Ліміт підписок вичерпано. Перейдіть до керування планом для розширення ліміту.');
+                                        try {
+                                            if (ch.is_subscribed) {
+                                                await unsubscribeFromChannel(userId, ch.id);
+                                            } else {
+                                                const result = await subscribeToChannel(userId, ch.id);
+                                                if (!result.success && result.errorCode === 403) {
+                                                    if (window.Telegram?.WebApp) {
+                                                        (window.Telegram.WebApp as any).showAlert(
+                                                            'Ліміт підписок вичерпано. Перейдіть до керування планом для розширення ліміту.',
+                                                            () => navigate('/catalog/my')
+                                                        );
+                                                    } else {
+                                                        navigate('/catalog/my');
+                                                    }
+                                                    return;
                                                 }
-                                                navigate('/catalog/my');
-                                                return; // Зупиняємо виконання, щоб не скидати стан loading тут
                                             }
+                                        } catch (err) {
+                                            console.error('Subscription error:', err);
+                                        } finally {
+                                            setSubmittingIds(prev => ({ ...prev, [ch.id]: false }));
                                         }
-                                        setSubmittingIds(prev => ({ ...prev, [ch.id]: false }));
                                     }}
                                     disabled={submittingIds[ch.id]}
                                     className={`p-2.5 rounded-xl transition-all flex items-center justify-center min-w-[44px] ${ch.is_subscribed
