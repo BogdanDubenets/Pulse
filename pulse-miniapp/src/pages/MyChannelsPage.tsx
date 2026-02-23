@@ -142,7 +142,7 @@ const ChannelItem: React.FC<ChannelItemProps> = ({
         >
             <div className="flex items-center space-x-3">
                 <div
-                    className="flex-shrink-0 cursor-grab active:cursor-grabbing p-1 -ml-1 text-text-muted opacity-40 group-hover:opacity-100 transition-opacity"
+                    className="flex-shrink-0 cursor-grab active:cursor-grabbing p-1 -ml-1 text-text-muted opacity-40 group-hover:opacity-100 transition-opacity touch-none select-none"
                     onPointerDown={(e) => controls.start(e)}
                 >
                     <GripVertical size={20} />
@@ -308,10 +308,8 @@ export const MyChannelsPage: React.FC = () => {
     }, [userId, fetchMyChannels, fetchUserStatus]);
 
     useEffect(() => {
-        if (channels.length > 0) {
-            setLocalChannels(channels);
-            setHasOrderChanged(false);
-        }
+        setLocalChannels(channels);
+        setHasOrderChanged(false);
     }, [channels]);
 
     const handleSubscribe = async () => {
@@ -523,7 +521,7 @@ export const MyChannelsPage: React.FC = () => {
                             </div>
                         )}
 
-                        {channels.map((ch, index: number) => {
+                        {localChannels.map((ch, index: number) => {
                             if (ch.is_placeholder) {
                                 return (
                                     <Reorder.Item
