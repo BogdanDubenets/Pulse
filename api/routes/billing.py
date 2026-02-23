@@ -20,7 +20,11 @@ async def get_db():
 
 class InvoiceRequest(BaseModel):
     user_id: int
-    tier: str # basic, standard, premium
+    tier: str # basic, standard, premium, ad_premium, auction_bid
+    channel_id: Optional[int] = None
+    days: Optional[int] = None
+    category: Optional[str] = None
+    amount: Optional[int] = None
 
 class InvoiceResponse(BaseModel):
     invoice_link: str
@@ -37,22 +41,38 @@ TIER_PRICES = {
 @router.post("/create-invoice", response_model=InvoiceResponse)
 async def create_invoice(req: InvoiceRequest, db: AsyncSession = Depends(get_db)):
     """Створити посилання на оплату через Telegram Stars"""
-    if req.tier not in TIER_PRICES:
-        raise HTTPException(status_code=400, detail="Invalid tier")
-    
-    price = TIER_PRICES[req.tier]
+    price = 0
+    title = ""
+    description = ""
+    payload = ""
+
+    if req.tier in TIER_PRICES:
+        price = TIER_PRICES[req.tier]
+        title = f"Pulse {req.tier.capitalize()} Subscription"
+        description = f"Щомісячна підписка на Pulse ({req.tier} рівень)"
+        payload = f"sub_{req.tier}_{req.user_id}"
+    elif req.tier == "ad_premium":
+        price = 1 # Тестова ціна
+        title = f"Premium Slot"
+        description = f"Преміум-слот для каналу на {req.days} днів"
+        payload = f"ad_{req.days}_{req.channel_id}_{req.user_id}"
+    elif req.tier == "auction_bid":
+        price = req.amount or 1
+        title = f"Auction Bid: {req.category}"
+        description = f"Ставка за Top-1 у категорії {req.category}"
+        payload = f"bid_{req.category}_{req.channel_id}_{price}_{req.user_id}"
+    else:
+        raise HTTPException(status_code=400, detail="Invalid payment type")
     
     # Використовуємо Bot API для генерації посилання
     bot = Bot(token=config.BOT_TOKEN.get_secret_value())
     
     try:
-        # У Telegram Stars currency завжди "XTR"
-        # payload - це дані, які повернуться в вебхуку
         invoice_link = await bot.create_invoice_link(
-            title=f"Pulse {req.tier.capitalize()} Subscription",
-            description=f"Щомісячна підписка на Pulse ({req.tier} рівень)",
-            payload=f"sub_{req.tier}_{req.user_id}",
-            provider_token="", # Для Stars токен провайдера порожній
+            title=title,
+            description=description,
+            payload=payload,
+            provider_token="", 
             currency="XTR",
             prices=[{"label": "Оплата", "amount": price}]
         )

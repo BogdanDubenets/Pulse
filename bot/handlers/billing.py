@@ -16,29 +16,54 @@ async def process_pre_checkout_query(pre_checkout_query: PreCheckoutQuery):
 async def process_successful_payment(message: Message):
     payload = message.successful_payment.invoice_payload
     # Payload format: sub_{tier}_{user_id}
-    parts = payload.split("_")
-    if len(parts) < 3 or parts[0] != "sub":
-        return
-
-    tier = parts[1]
-    user_id = int(parts[2])
-    
-    # Оновлюємо статус користувача в БД
     async with AsyncSessionLocal() as session:
-        # Встановлюємо підписку на 30 днів
-        expires_at = datetime.now(timezone.utc) + timedelta(days=30)
-        
-        await session.execute(
-            update(User)
-            .where(User.id == user_id)
-            .values(
-                subscription_tier=tier,
-                subscription_expires_at=expires_at
+        if parts[0] == "sub":
+            tier = parts[1]
+            user_id = int(parts[2])
+            expires_at = datetime.now(timezone.utc) + timedelta(days=30)
+            await session.execute(
+                update(User)
+                .where(User.id == user_id)
+                .values(subscription_tier=tier, subscription_expires_at=expires_at)
             )
-        )
-        await session.commit()
+            await message.answer(f"✅ План оновлено до **{tier.capitalize()}**!")
+            
+        elif parts[0] == "ad":
+            days = int(parts[1])
+            channel_id = int(parts[2])
+            from database.models import Channel
+            expires_at = datetime.now(timezone.utc) + timedelta(days=days)
+            await session.execute(
+                update(Channel)
+                .where(Channel.id == channel_id)
+                .values(partner_status="premium", partner_expires_at=expires_at)
+            )
+            await message.answer(f"✅ Канал активовано у Преміум-каруселі на {days} днів!")
+            
+        elif parts[0] == "bid":
+            category = parts[1]
+            channel_id = int(parts[2])
+            amount = int(parts[3])
+            user_id = int(parts[4])
+            from database.models import Auction
+            
+            stmt = select(Auction).where(Auction.category == category)
+            res = await session.execute(stmt)
+            auction = res.scalar_one_or_none()
+            
+            if auction:
+                auction.current_bid = amount
+                auction.leader_user_id = user_id
+                auction.channel_id = channel_id
+            else:
+                new_auc = Auction(
+                    category=category,
+                    current_bid=amount,
+                    leader_user_id=user_id,
+                    channel_id=channel_id,
+                    ends_at=datetime.now(timezone.utc) + timedelta(hours=24)
+                )
+                session.add(new_auc)
+            await message.answer(f"✅ Вашу ставку {amount} Stars у категорії '{category}' прийнято!")
 
-    await message.answer(
-        f"✅ Оплата успішна! Ваш план оновлено до **{tier.capitalize()}**.\n"
-        f"Тепер вам доступно більше можливостей у Pulse."
-    )
+        await session.commit()

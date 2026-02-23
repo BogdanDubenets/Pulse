@@ -22,14 +22,10 @@ interface CatalogState {
     fetchMyChannels: (userId: number) => Promise<void>;
     fetchUserStatus: (userId: number) => Promise<void>;
     addCustomChannel: (userId: number, url: string) => Promise<{ success: boolean; message: string }>;
-    createInvoice: (userId: number, tier: string) => Promise<string | null>;
-    placeBid: (userId: number, channelId: number, category: string, amount: number) => Promise<boolean>;
-    subscribeToChannel: (userId: number, channelId: number) => Promise<{ success: boolean; errorCode?: number }>;
-    unsubscribeFromChannel: (userId: number, channelId: number) => Promise<boolean>;
-    reorderChannels: (userId: number, channelIds: number[]) => Promise<{ success: boolean; message?: string }>;
     fetchAuctions: () => Promise<any[]>;
     buyPremium: (userId: number, channelId: number, category: string, days: number) => Promise<{ success: boolean; message: string }>;
     verifyPin: (userId: number, channelId: number) => Promise<{ success: boolean; message: string }>;
+    createInvoice: (userId: number, tier: string, extra?: any) => Promise<string | null>;
 }
 
 export const useCatalogStore = create<CatalogState>((set, get) => ({
@@ -63,10 +59,14 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
         }
     },
 
-    createInvoice: async (userId: number, tier: string) => {
+    createInvoice: async (userId: number, tier: string, extra: any = {}) => {
         set({ isLoading: true, error: null });
         try {
-            const response = await apiClient.post<{ invoice_link: string }>('/billing/create-invoice', { user_id: userId, tier });
+            const response = await apiClient.post<{ invoice_link: string }>('/billing/create-invoice', {
+                user_id: userId,
+                tier,
+                ...extra
+            });
             set({ isLoading: false });
             return response.data.invoice_link;
         } catch (error: any) {
@@ -116,13 +116,20 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
 
     placeBid: async (userId: number, channelId: number, category: string, amount: number) => {
         try {
-            await apiClient.post('/catalog/auction/bid', {
-                user_id: userId,
-                channel_id: channelId,
+            const invoiceLink = await get().createInvoice(userId, 'auction_bid', {
                 category,
+                channel_id: channelId,
                 amount
             });
-            return true;
+
+            if (invoiceLink) {
+                return new Promise((resolve) => {
+                    (window.Telegram?.WebApp as any).openInvoice(invoiceLink, (status: string) => {
+                        resolve(status === 'paid');
+                    });
+                });
+            }
+            return false;
         } catch (error: any) {
             console.error('Failed to place bid:', error);
             return false;
@@ -193,14 +200,24 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
 
     buyPremium: async (userId: number, channelId: number, category: string, days: number) => {
         try {
-            const response = await apiClient.post('/catalog/premium/buy', {
-                user_id: userId,
+            const invoiceLink = await get().createInvoice(userId, 'ad_premium', {
                 channel_id: channelId,
                 category,
                 days
             });
-            await get().fetchMyChannels(userId);
-            return { success: true, message: response.data.message };
+
+            if (invoiceLink) {
+                return new Promise((resolve) => {
+                    (window.Telegram?.WebApp as any).openInvoice(invoiceLink, (status: string) => {
+                        if (status === 'paid') {
+                            resolve({ success: true, message: 'Оплата успішна! Преміум активовано.' });
+                        } else {
+                            resolve({ success: false, message: 'Оплату скасовано' });
+                        }
+                    });
+                });
+            }
+            return { success: false, message: 'Не вдалося створити інвойс' };
         } catch (error: any) {
             const message = error.response?.data?.detail || 'Помилка купівлі преміум-слоту';
             return { success: false, message };
