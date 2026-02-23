@@ -192,6 +192,7 @@ export const CategoryPage: React.FC = () => {
                                                 await unsubscribeFromChannel(userId, ch.id);
                                             } else {
                                                 const result = await subscribeToChannel(userId, ch.id);
+                                                console.log(`[UI] Subscribe attempt for ${ch.title} (ID: ${ch.id}). Result:`, result);
                                                 if (!result.success && result.errorCode === 403) {
                                                     if (window.Telegram?.WebApp) {
                                                         (window.Telegram.WebApp as any).showAlert(
