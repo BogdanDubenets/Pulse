@@ -27,6 +27,9 @@ interface CatalogState {
     subscribeToChannel: (userId: number, channelId: number) => Promise<{ success: boolean; errorCode?: number }>;
     unsubscribeFromChannel: (userId: number, channelId: number) => Promise<boolean>;
     reorderChannels: (userId: number, channelIds: number[]) => Promise<{ success: boolean; message?: string }>;
+    fetchAuctions: () => Promise<any[]>;
+    buyPremium: (userId: number, channelId: number, category: string, days: number) => Promise<{ success: boolean; message: string }>;
+    verifyPin: (userId: number, channelId: number) => Promise<{ success: boolean; message: string }>;
 }
 
 export const useCatalogStore = create<CatalogState>((set, get) => ({
@@ -174,6 +177,46 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
             const message = error.response?.data?.detail || 'Помилка зміни порядку';
             // Відкочуємо назад при помилці
             await get().fetchMyChannels(userId);
+            return { success: false, message };
+        }
+    },
+
+    fetchAuctions: async () => {
+        try {
+            const response = await apiClient.get<any[]>('/catalog/auctions');
+            return response.data;
+        } catch (error) {
+            console.error('Failed to fetch auctions:', error);
+            return [];
+        }
+    },
+
+    buyPremium: async (userId: number, channelId: number, category: string, days: number) => {
+        try {
+            const response = await apiClient.post('/catalog/premium/buy', {
+                user_id: userId,
+                channel_id: channelId,
+                category,
+                days
+            });
+            await get().fetchMyChannels(userId);
+            return { success: true, message: response.data.message };
+        } catch (error: any) {
+            const message = error.response?.data?.detail || 'Помилка купівлі преміум-слоту';
+            return { success: false, message };
+        }
+    },
+
+    verifyPin: async (userId: number, channelId: number) => {
+        try {
+            const response = await apiClient.post('/catalog/partner/verify', {
+                user_id: userId,
+                channel_id: channelId
+            });
+            await get().fetchMyChannels(userId);
+            return { success: true, message: response.data.message };
+        } catch (error: any) {
+            const message = error.response?.data?.detail || 'Помилка верифікації закрепу';
             return { success: false, message };
         }
     }

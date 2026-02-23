@@ -95,30 +95,25 @@ export const CategoryPage: React.FC = () => {
                     </div>
                 </header>
 
-                {/* Auction Banner */}
-                <motion.div
-                    initial={{ scale: 0.95, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="p-5 bg-gradient-to-br from-accent/20 to-primary/10 border border-accent/30 rounded-2xl relative overflow-hidden"
-                >
-                    <div className="relative z-10 space-y-3">
-                        <div className="flex items-center space-x-2 text-accent">
-                            <Trophy className="w-5 h-5" />
-                            <span className="font-bold text-sm uppercase tracking-wider">Аукціон Top-1</span>
+                {/* Info Bar if no highlighted top slots */}
+                {!channels.some(ch => ch.partner_status === 'premium') && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="p-3 bg-surface/50 border border-border rounded-xl flex items-center justify-between text-xs"
+                    >
+                        <div className="flex items-center space-x-2 text-text-muted">
+                            <Trophy className="w-4 h-4 text-accent" />
+                            <span>Ця категорія відкрита для просування</span>
                         </div>
-                        <h2 className="text-xl font-bold">Будьте першим у розділі!</h2>
-                        <p className="text-sm text-text-secondary pr-12">
-                            Ваш канал побачать тисячі користувачів щодня. Ставка від 50 Stars.
-                        </p>
                         <button
-                            onClick={() => setIsAuctionOpen(true)}
-                            className="w-full py-2 bg-accent text-background font-bold rounded-xl active:scale-95 transition-transform"
+                            onClick={() => navigate('/cabinet')}
+                            className="text-primary font-bold hover:underline"
                         >
-                            Зробити ставку
+                            Докладніше
                         </button>
-                    </div>
-                    <Zap className="absolute -right-4 -top-4 w-24 h-24 text-accent/10 rotate-12" />
-                </motion.div>
+                    </motion.div>
+                )}
 
                 {/* Channels List */}
                 <div className="space-y-3">
@@ -128,7 +123,9 @@ export const CategoryPage: React.FC = () => {
                             initial={{ x: -20, opacity: 0 }}
                             animate={{ x: 0, opacity: 1 }}
                             transition={{ delay: index * 0.05 }}
-                            className={`p-4 bg-surface border rounded-2xl flex items-center justify-between ${ch.partner_status === 'premium' ? 'border-primary shadow-lg shadow-primary/5' : 'border-border'
+                            className={`p-4 bg-surface border rounded-2xl flex items-center justify-between transition-all ${index === 0 && ch.partner_status === 'premium'
+                                    ? 'border-accent shadow-lg shadow-accent/10 bg-gradient-to-br from-surface to-accent/5'
+                                    : (ch.partner_status === 'premium' ? 'border-primary shadow-lg shadow-primary/5' : 'border-border')
                                 }`}
                         >
                             <div className="flex items-center space-x-4 flex-1 min-w-0">
@@ -151,7 +148,11 @@ export const CategoryPage: React.FC = () => {
                                             ch.title.charAt(0)
                                         )}
                                     </div>
-                                    {ch.partner_status === 'premium' && (
+                                    {index === 0 && ch.partner_status === 'premium' ? (
+                                        <div className="absolute -top-1 -right-1 bg-accent p-1 rounded-full border-2 border-surface animate-bounce-subtle">
+                                            <Trophy className="w-3 h-3 text-background fill-current" />
+                                        </div>
+                                    ) : ch.partner_status === 'premium' && (
                                         <div className="absolute -top-1 -right-1 bg-primary p-1 rounded-full border-2 border-surface">
                                             <Zap className="w-3 h-3 text-white fill-current" />
                                         </div>

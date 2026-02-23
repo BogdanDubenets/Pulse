@@ -65,7 +65,7 @@ interface ChannelItemProps {
     setImgErrors: React.Dispatch<React.SetStateAction<Record<number, boolean>>>;
     submittingIds: Record<number, boolean>;
     setSubmittingIds: React.Dispatch<React.SetStateAction<Record<number, boolean>>>;
-    unsubscribeFromChannel: (userId: number, channelId: number) => Promise<{ success: boolean; message?: string }>;
+    unsubscribeFromChannel: (userId: number, channelId: number) => Promise<any>;
     fetchMyChannels: (userId: number) => Promise<void>;
     userId: number;
 }
@@ -243,6 +243,8 @@ export const MyChannelsPage: React.FC = () => {
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
     const [imgErrors, setImgErrors] = useState<Record<number, boolean>>({});
     const [submittingIds, setSubmittingIds] = useState<Record<number, boolean>>({});
+    const [localChannels, setLocalChannels] = useState<any[]>([]);
+    const [hasOrderChanged, setHasOrderChanged] = useState(false);
 
     const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 461874849;
 
@@ -250,6 +252,13 @@ export const MyChannelsPage: React.FC = () => {
         fetchMyChannels(userId);
         fetchUserStatus(userId);
     }, [userId, fetchMyChannels, fetchUserStatus]);
+
+    useEffect(() => {
+        if (channels.length > 0) {
+            setLocalChannels(channels);
+            setHasOrderChanged(false);
+        }
+    }, [channels]);
 
     const handleSubscribe = async () => {
         setIsSubscribing(true);
@@ -418,21 +427,10 @@ export const MyChannelsPage: React.FC = () => {
                 <div className="px-1">
                     <Reorder.Group
                         axis="y"
-                        values={channels}
-                        onReorder={async (newOrder: typeof channels) => {
-                            if (!userId) return;
-                            // Відфільтровуємо порожні слоти перед відправкою на бекенд
-                            const realChannelIds = newOrder
-                                .filter(ch => !ch.is_placeholder)
-                                .map(ch => ch.id);
-                            const result = await reorderChannels(userId, realChannelIds);
-                            if (!result.success && result.message) {
-                                (window as any).Telegram?.WebApp?.showPopup?.({
-                                    title: 'Обмеження',
-                                    message: result.message,
-                                    buttons: [{ type: 'ok', text: 'Зрозуміло' }]
-                                });
-                            }
+                        values={localChannels}
+                        onReorder={(newOrder) => {
+                            setLocalChannels(newOrder);
+                            setHasOrderChanged(true);
                         }}
                         className="space-y-3"
                     >
@@ -503,6 +501,49 @@ export const MyChannelsPage: React.FC = () => {
                         {error}
                     </div>
                 )}
+
+                {/* Floating Save Button */}
+                <AnimatePresence>
+                    {hasOrderChanged && (
+                        <motion.div
+                            initial={{ y: 100, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            exit={{ y: 100, opacity: 0 }}
+                            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-full max-w-xs px-4"
+                        >
+                            <button
+                                onClick={async () => {
+                                    setIsSubmitting(true);
+                                    const realChannelIds = localChannels
+                                        .filter(ch => !ch.is_placeholder)
+                                        .map(ch => ch.id);
+                                    const result = await reorderChannels(userId, realChannelIds);
+                                    if (result.success) {
+                                        setHasOrderChanged(false);
+                                        // fetchMyChannels вже викликається в reorderChannels якщо треба, 
+                                        // або ми вже оновили стор
+                                    } else {
+                                        (window as any).Telegram?.WebApp?.showPopup?.({
+                                            title: 'Обмеження',
+                                            message: result.message,
+                                            buttons: [{ type: 'ok', text: 'Зрозуміло' }]
+                                        });
+                                        setLocalChannels(channels); // Revert
+                                        setHasOrderChanged(false);
+                                    }
+                                    setIsSubmitting(false);
+                                }}
+                                disabled={isSubmitting}
+                                className="w-full py-4 bg-primary text-white rounded-2xl font-bold shadow-2xl flex items-center justify-center space-x-2"
+                            >
+                                {isSubmitting ? <Loader2 className="animate-spin" /> : <>
+                                    <CheckCircle2 size={20} />
+                                    <span>Зберегти порядок</span>
+                                </>}
+                            </button>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
 
             {/* Add Channel Modal */}

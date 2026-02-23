@@ -19,6 +19,7 @@ class Channel(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_core: Mapped[bool] = mapped_column(Boolean, default=False)
     partner_status: Mapped[str] = mapped_column(String, default="organic") # premium, pinned, organic
+    partner_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     pinned_msg_id: Mapped[Optional[int]] = mapped_column(BigInteger)
     posts_count_24h: Mapped[int] = mapped_column(Integer, default=0)
     avatar_url: Mapped[Optional[str]] = mapped_column(String)

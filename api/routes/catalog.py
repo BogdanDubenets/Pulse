@@ -51,6 +51,16 @@ class AuctionBidRequest(BaseModel):
     category: str
     amount: int  # Stars
 
+class PremiumBuyRequest(BaseModel):
+    user_id: int
+    channel_id: int
+    category: str
+    days: int
+
+class PartnerVerifyRequest(BaseModel):
+    user_id: int
+    channel_id: int
+
 # --- Endpoints ---
 
 @router.get("/categories", response_model=List[CategoryResponse])
@@ -77,24 +87,54 @@ async def get_channels(
 ):
     """
     Отримати канали для каталогу з сортуванням:
-    1. Premium (партнери)
-    2. Pinned (закріплені)
-    3. Organic (за активністю 24г)
+    1. Auction Winner (Top-1)
+    2. Premium Carousel (Top-2)
+    3. Pinned Carousel (Top-3)
+    4. Organic (за активністю 24г)
     """
-    stmt = select(Channel).where(Channel.is_active == True)
+    now = datetime.now(timezone.utc)
     
+    # 1. Отримуємо канали за категорією
+    stmt = select(Channel).where(Channel.is_active == True)
     if category:
         stmt = stmt.where(Channel.category == category)
-        
-    # Сортування: Партнерський статус (якщо є), потім кількість постів
-    stmt = stmt.order_by(
-        desc(Channel.partner_status == 'premium'),
-        desc(Channel.partner_status == 'pinned'),
-        desc(Channel.posts_count_24h)
-    )
     
     result = await db.execute(stmt)
     channels_db = result.scalars().all()
+    
+    # 2. Отримуємо переможця аукціону для категорії
+    auction_channel_id = None
+    if category:
+        auction_stmt = select(Auction.channel_id).where(Auction.category == category, Auction.ends_at > now).order_by(desc(Auction.current_bid))
+        auction_res = await db.execute(auction_stmt)
+        auction_channel_id = auction_res.scalar()
+
+    # 3. Розподіляємо канали по тірах
+    auction_winners = []
+    premium_channels = []
+    pinned_channels = []
+    organic_channels = []
+
+    for ch in channels_db:
+        # Перевірка терміну дії статусу
+        status = ch.partner_status
+        if ch.partner_expires_at and ch.partner_expires_at.replace(tzinfo=timezone.utc) < now:
+            status = "organic"
+
+        if ch.id == auction_channel_id:
+            auction_winners.append(ch)
+        elif status == "premium":
+            premium_channels.append(ch)
+        elif status == "pinned":
+            pinned_channels.append(ch)
+        else:
+            organic_channels.append(ch)
+
+    # 4. Сортування органіки та каруселей
+    organic_channels.sort(key=lambda x: x.posts_count_24h, reverse=True)
+    # Каруселі можна додатково шафлити або сортувати
+    
+    combined_channels = auction_winners + premium_channels + pinned_channels + organic_channels
     
     # Отримуємо підписки користувача, якщо user_id передано
     user_subs = set()
@@ -103,17 +143,25 @@ async def get_channels(
         sub_res = await db.execute(sub_stmt)
         user_subs = set(sub_res.scalars().all())
 
-    channels = []
-    for ch in channels_db:
+    for ch in combined_channels:
         # Fallback для аватарок
         avatar = ch.avatar_url or f"/api/v1/catalog/photo/{ch.telegram_id}"
         
+        # Визначаємо статус для фронтенда (з урахуванням протухання)
+        effective_status = ch.partner_status
+        if ch.partner_expires_at and ch.partner_expires_at.replace(tzinfo=timezone.utc) < now:
+            effective_status = "organic"
+        
+        # Якщо це переможець аукціону — ставимо статус premium (або спеціальний)
+        if ch.id == auction_channel_id:
+            effective_status = "premium"
+
         channels.append(ChannelCatalogItem(
             id=ch.id,
             username=ch.username,
             title=ch.title,
             category=ch.category,
-            partner_status=ch.partner_status,
+            partner_status=effective_status,
             posts_count_24h=ch.posts_count_24h,
             is_core=ch.is_core,
             avatar_url=avatar,
@@ -332,8 +380,71 @@ async def place_bid(bid: AuctionBidRequest, db: AsyncSession = Depends(get_db)):
             ends_at=datetime.utcnow() + timedelta(hours=24)
         )
         db.add(new_auction)
-        
-@router.get("/user/status/{user_id}")
+    
+    await db.commit()
+    return {"status": "ok"}
+
+@router.get("/auctions")
+async def get_all_auctions(db: AsyncSession = Depends(get_db)):
+    """Отримати всі активні аукціони для Кабінету"""
+    # Отримуємо всі унікальні категорії
+    cat_stmt = select(Channel.category).where(Channel.is_active == True).distinct()
+    cat_res = await db.execute(cat_stmt)
+    categories = [cat[0] for cat in cat_res if cat[0]]
+
+    # Отримуємо фактичні аукціони
+    now = datetime.now(timezone.utc)
+    auc_stmt = select(Auction).where(Auction.ends_at > now)
+    auc_res = await db.execute(auc_stmt)
+    active_auctions = {a.category: a for a in auc_res.scalars().all()}
+
+    results = []
+    for cat in categories:
+        auc = active_auctions.get(cat)
+        results.append({
+            "category": cat,
+            "current_bid": auc.current_bid if auc else 0,
+            "leader_user_id": auc.leader_user_id if auc else None,
+            "ends_at": auc.ends_at.isoformat() if auc else None,
+            "has_active_auction": auc is not None
+        })
+    
+    return results
+
+@router.post("/premium/buy")
+async def buy_premium_slot(req: PremiumBuyRequest, db: AsyncSession = Depends(get_db)):
+    """Купівля місця в каруселі (Tier 2)"""
+    channel = await db.get(Channel, req.channel_id)
+    if not channel:
+        raise HTTPException(status_code=404, detail="Канал не знайдено")
+    
+    # В реальності тут була б перевірка оплати
+    now = datetime.now(timezone.utc)
+    expiry = now + timedelta(days=req.days)
+    
+    channel.partner_status = "premium"
+    channel.partner_expires_at = expiry
+    
+    await db.commit()
+    return {"status": "ok", "message": f"Статус Premium активовано до {expiry.date()}"}
+
+@router.post("/partner/verify")
+async def verify_partner_pin(req: PartnerVerifyRequest, db: AsyncSession = Depends(get_db)):
+    """Перевірка закрепу (Tier 3)"""
+    channel = await db.get(Channel, req.channel_id)
+    if not channel:
+        raise HTTPException(status_code=404, detail="Канал не знайдено")
+    
+    # TODO: Реальна логіка перевірки закрепу через Telegram API
+    # Наразі просто імітуємо успіх для тестів
+    now = datetime.now(timezone.utc)
+    expiry = now + timedelta(days=7) # Закреп діє 7 днів до наступної перевірки
+    
+    channel.partner_status = "pinned"
+    channel.partner_expires_at = expiry
+    
+    await db.commit()
+    return {"status": "ok", "message": "Закреп підтверджено! Статус діє 7 днів."}
 async def get_user_status(user_id: int, db: AsyncSession = Depends(get_db)):
     """Отримати статус підписки та кількість каналів"""
     user_res = await db.execute(select(User).where(User.id == user_id))
