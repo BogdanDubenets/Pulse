@@ -7,6 +7,7 @@ export interface UserStatus {
     sub_count: number;
     limit: number;
     can_add: boolean;
+    expires_at?: string;
 }
 
 interface CatalogState {
