@@ -143,6 +143,7 @@ async def get_channels(
         sub_res = await db.execute(sub_stmt)
         user_subs = set(sub_res.scalars().all())
 
+    channels = []
     for ch in combined_channels:
         # Fallback для аватарок
         avatar = ch.avatar_url or f"/api/v1/catalog/photo/{ch.telegram_id}"
