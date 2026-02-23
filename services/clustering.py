@@ -39,19 +39,11 @@ async def cluster_publication(publication_id: int):
             logger.info(f"Publication {publication_id} already in story {publication.story_id}")
             return
         
-        # 2. Генеруємо вектор
-        # Використовуємо заголовок (якщо є, в telegram це перші рядки) і текст
+        # 2. Individual Post Mode: Skip embedding and similarity search
         text_to_embed = publication.content or ""
-        embedding = await get_text_embedding(text_to_embed)
-        
-        if not embedding:
-            logger.warning(f"Failed to generate embedding for pub {publication_id}")
-            return
+        embedding = None # Not needed when clustering is disabled
 
-        # 3. Вимикаємо пошук схожих історій (Individual Post Mode)
-        # Кожна публікація отримує власну Story.
         story_to_link = None
-        logger.info("Individual Post Mode: Skipping similarity search.")
         
         # 4. Линковка або створення
         if story_to_link:

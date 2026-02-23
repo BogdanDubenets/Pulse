@@ -81,14 +81,6 @@ class ChannelMonitor:
             
             for ch in channels:
                 self._add_to_cache(ch)
-                
-                # Перевірка на необхідність сканування історії (якщо пройшло > 1 год або ніколи)
-                time_threshold = datetime.now(timezone.utc) - timedelta(hours=24)
-                last = ch.last_scanned_at.replace(tzinfo=None) if ch.last_scanned_at else None
-                if not last or (datetime.now(timezone.utc) - last.replace(tzinfo=timezone.utc)).total_seconds() > 3600:
-                    identifier = ch.username or ch.telegram_id
-                    if identifier:
-                        asyncio.create_task(self._scan_channel(ch.id, identifier))
                     
             logger.info(f"Оновлено список каналів: {len(channels)} каналів (flood_wait: {self.flood_wait_count})")
         except Exception as e:
