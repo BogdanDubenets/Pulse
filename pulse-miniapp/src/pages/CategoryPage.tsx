@@ -190,7 +190,15 @@ export const CategoryPage: React.FC = () => {
                                         if (ch.is_subscribed) {
                                             await unsubscribeFromChannel(userId, ch.id);
                                         } else {
-                                            await subscribeToChannel(userId, ch.id);
+                                            const result = await subscribeToChannel(userId, ch.id);
+                                            if (!result.success && result.errorCode === 403) {
+                                                // Відображаємо попередження та робимо редирект на сторінку оплати
+                                                if (window.Telegram?.WebApp) {
+                                                    (window.Telegram.WebApp as any).showAlert('Ліміт підписок вичерпано. Перейдіть до керування планом для розширення ліміту.');
+                                                }
+                                                navigate('/catalog/my');
+                                                return; // Зупиняємо виконання, щоб не скидати стан loading тут
+                                            }
                                         }
                                         setSubmittingIds(prev => ({ ...prev, [ch.id]: false }));
                                     }}

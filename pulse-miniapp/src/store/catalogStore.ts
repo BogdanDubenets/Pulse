@@ -23,7 +23,7 @@ interface CatalogState {
     addCustomChannel: (userId: number, url: string) => Promise<{ success: boolean; message: string }>;
     createInvoice: (userId: number, tier: string) => Promise<string | null>;
     placeBid: (userId: number, channelId: number, category: string, amount: number) => Promise<boolean>;
-    subscribeToChannel: (userId: number, channelId: number) => Promise<boolean>;
+    subscribeToChannel: (userId: number, channelId: number) => Promise<{ success: boolean; errorCode?: number }>;
     unsubscribeFromChannel: (userId: number, channelId: number) => Promise<boolean>;
 }
 
@@ -134,10 +134,11 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
                 )
             }));
             await get().fetchUserStatus(userId);
-            return true;
-        } catch (error) {
+            return { success: true };
+        } catch (error: any) {
             console.error('Failed to subscribe:', error);
-            return false;
+            const errorCode = error.response?.status;
+            return { success: false, errorCode };
         }
     },
 
