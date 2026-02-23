@@ -142,10 +142,13 @@ const ChannelItem: React.FC<ChannelItemProps> = ({
         >
             <div className="flex items-center space-x-3">
                 <div
-                    className="flex-shrink-0 cursor-grab active:cursor-grabbing p-1 -ml-1 text-text-muted opacity-40 group-hover:opacity-100 transition-opacity touch-none select-none"
+                    className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm transition-all cursor-grab active:cursor-grabbing touch-none select-none shadow-sm ${isActiveSlot
+                        ? 'bg-primary text-white shadow-primary/20'
+                        : 'bg-surface-secondary text-text-muted border border-border/50 opacity-60'
+                        }`}
                     onPointerDown={(e) => controls.start(e)}
                 >
-                    <GripVertical size={20} />
+                    {index + 1}
                 </div>
 
                 <div className="flex-1 min-w-0 flex items-center space-x-3">
