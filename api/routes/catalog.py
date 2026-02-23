@@ -5,7 +5,7 @@ from database.connection import AsyncSessionLocal
 from database.models import Channel, Auction, User, UserSubscription
 from pydantic import BaseModel, HttpUrl
 from typing import List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import httpx
 from fastapi.responses import StreamingResponse
 from config.settings import config
@@ -39,8 +39,8 @@ class ChannelCatalogItem(BaseModel):
     avatar_url: Optional[str] = None
     is_subscribed: bool = False
     is_limit_active: bool = True
-    partner_status: str = "organic"
-    posts_count_24h: int = 0
+    partner_status: Optional[str] = "organic"
+    posts_count_24h: Optional[int] = 0
     can_unsubscribe_at: Optional[str] = None
     is_placeholder: bool = False # Для відображення порожніх слотів
     position: Optional[int] = 0
