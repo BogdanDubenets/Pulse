@@ -21,7 +21,7 @@ export const DigestPage: React.FC = () => {
         (localStorage.getItem('pulse_group_by') as any) || 'category'
     );
     const [pinnedCats, setPinnedCats] = useState<string[]>(
-        JSON.parse(localStorage.getItem('pulse_pinned_cats') || '["⚽ Спорт", "🧪 Наука"]')
+        JSON.parse(localStorage.getItem('pulse_pinned_cats') || '[]')
     );
 
     useEffect(() => {
