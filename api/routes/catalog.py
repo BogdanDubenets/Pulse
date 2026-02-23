@@ -35,10 +35,9 @@ class ChannelCatalogItem(BaseModel):
     username: Optional[str]
     title: str
     category: Optional[str]
-    partner_status: str
-    posts_count_24h: int
     is_core: bool
     avatar_url: Optional[str] = None
+    is_subscribed: bool = False
 
 class AuctionBidRequest(BaseModel):
     user_id: int
@@ -67,6 +66,7 @@ async def get_categories(db: AsyncSession = Depends(get_db)):
 @router.get("/channels", response_model=List[ChannelCatalogItem])
 async def get_channels(
     category: Optional[str] = None, 
+    user_id: Optional[int] = None,
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -88,11 +88,31 @@ async def get_channels(
     )
     
     result = await db.execute(stmt)
-    channels = result.scalars().all()
-    # Fallback для аватарок, якщо вони порожні в БД
-    for ch in channels:
-        if not ch.avatar_url:
-            ch.avatar_url = f"/api/v1/catalog/photo/{ch.telegram_id}"
+    channels_db = result.scalars().all()
+    
+    # Отримуємо підписки користувача, якщо user_id передано
+    user_subs = set()
+    if user_id:
+        sub_stmt = select(UserSubscription.channel_id).where(UserSubscription.user_id == user_id)
+        sub_res = await db.execute(sub_stmt)
+        user_subs = set(sub_res.scalars().all())
+
+    channels = []
+    for ch in channels_db:
+        # Fallback для аватарок
+        avatar = ch.avatar_url or f"/api/v1/catalog/photo/{ch.telegram_id}"
+        
+        channels.append(ChannelCatalogItem(
+            id=ch.id,
+            username=ch.username,
+            title=ch.title,
+            category=ch.category,
+            partner_status=ch.partner_status,
+            posts_count_24h=ch.posts_count_24h,
+            is_core=ch.is_core,
+            avatar_url=avatar,
+            is_subscribed=ch.id in user_subs
+        ))
     return channels
 
 @router.get("/my-channels/{user_id}", response_model=List[ChannelCatalogItem])
@@ -106,11 +126,71 @@ async def get_my_channels(user_id: int, db: AsyncSession = Depends(get_db)):
         .order_by(Channel.title)
     )
     result = await db.execute(stmt)
-    channels = result.scalars().all()
-    for ch in channels:
-        if not ch.avatar_url:
-            ch.avatar_url = f"/api/v1/catalog/photo/{ch.telegram_id}"
+    channels_db = result.scalars().all()
+    
+    channels = []
+    for ch in channels_db:
+        avatar = ch.avatar_url or f"/api/v1/catalog/photo/{ch.telegram_id}"
+        channels.append(ChannelCatalogItem(
+            id=ch.id,
+            username=ch.username,
+            title=ch.title,
+            category=ch.category,
+            partner_status=ch.partner_status,
+            posts_count_24h=ch.posts_count_24h,
+            is_core=ch.is_core,
+            avatar_url=avatar,
+            is_subscribed=True
+        ))
     return channels
+
+class SubscribeRequest(BaseModel):
+    user_id: int
+    channel_id: int
+
+@router.post("/subscribe")
+async def subscribe(req: SubscribeRequest, db: AsyncSession = Depends(get_db)):
+    """Підписати користувача на канал"""
+    # 1. Перевірити чи існує канал
+    channel = await db.get(Channel, req.channel_id)
+    if not channel:
+        raise HTTPException(status_code=404, detail="Канал не знайдено")
+    
+    # 2. Перевірити ліміти
+    status = await get_user_status(req.user_id, db)
+    if not status["can_add"]:
+        raise HTTPException(status_code=403, detail=f"Ліміт вичерпано ({status['limit']} каналів)")
+
+    # 3. Перевірити чи вже підписаний
+    stmt = select(UserSubscription).where(
+        UserSubscription.user_id == req.user_id,
+        UserSubscription.channel_id == req.channel_id
+    )
+    res = await db.execute(stmt)
+    if res.scalar_one_or_none():
+        return {"status": "ok", "message": "Вже підписані"}
+    
+    # 4. Додати підписку
+    new_sub = UserSubscription(user_id=req.user_id, channel_id=req.channel_id)
+    db.add(new_sub)
+    await db.commit()
+    return {"status": "ok", "message": "Успішно підписано"}
+
+@router.post("/unsubscribe")
+async def unsubscribe(req: SubscribeRequest, db: AsyncSession = Depends(get_db)):
+    """Відписати користувача від каналу"""
+    stmt = select(UserSubscription).where(
+        UserSubscription.user_id == req.user_id,
+        UserSubscription.channel_id == req.channel_id
+    )
+    res = await db.execute(stmt)
+    sub = res.scalar_one_or_none()
+    
+    if sub:
+        await db.delete(sub)
+        await db.commit()
+    
+    return {"status": "ok", "message": "Успішно відписано"}
 
 @router.post("/auction/bid")
 async def place_bid(bid: AuctionBidRequest, db: AsyncSession = Depends(get_db)):

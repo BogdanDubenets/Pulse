@@ -11,15 +11,20 @@ import {
     Pin,
     BarChart3,
     Loader2,
-    Trophy
+    Trophy,
+    Plus,
+    Check
 } from 'lucide-react';
 
 export const CategoryPage: React.FC = () => {
     const { category } = useParams<{ category: string }>();
     const navigate = useNavigate();
-    const { channels, isLoading, error, fetchChannels } = useCatalogStore();
+    const { channels, isLoading, error, fetchChannels, subscribeToChannel, unsubscribeFromChannel } = useCatalogStore();
     const [isAuctionOpen, setIsAuctionOpen] = useState(false);
     const [imgErrors, setImgErrors] = useState<Record<number, boolean>>({});
+    const [submittingIds, setSubmittingIds] = useState<Record<number, boolean>>({});
+
+    const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 461874849;
 
     useEffect(() => {
         if (category) {
@@ -128,14 +133,41 @@ export const CategoryPage: React.FC = () => {
                                 </div>
                             </div>
 
-                            <a
-                                href={ch.username ? `https://t.me/${ch.username}` : '#'}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="p-2 bg-surface border border-border rounded-xl hover:bg-border transition-colors outline-none"
-                            >
-                                <ExternalLink className="w-5 h-5 text-text-muted" />
-                            </a>
+                            <div className="flex items-center space-x-3">
+                                <a
+                                    href={ch.username ? `https://t.me/${ch.username}` : '#'}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="p-2.5 bg-surface/50 backdrop-blur-md border border-border rounded-xl hover:bg-border transition-colors outline-none"
+                                >
+                                    <ExternalLink className="w-5 h-5 text-text-muted" />
+                                </a>
+
+                                <button
+                                    onClick={async () => {
+                                        setSubmittingIds(prev => ({ ...prev, [ch.id]: true }));
+                                        if (ch.is_subscribed) {
+                                            await unsubscribeFromChannel(userId, ch.id);
+                                        } else {
+                                            await subscribeToChannel(userId, ch.id);
+                                        }
+                                        setSubmittingIds(prev => ({ ...prev, [ch.id]: false }));
+                                    }}
+                                    disabled={submittingIds[ch.id]}
+                                    className={`p-2.5 rounded-xl transition-all flex items-center justify-center min-w-[44px] ${ch.is_subscribed
+                                        ? 'bg-success/10 text-success border border-success/20'
+                                        : 'bg-primary text-white shadow-lg shadow-primary/20 active:scale-90'
+                                        }`}
+                                >
+                                    {submittingIds[ch.id] ? (
+                                        <Loader2 className="w-5 h-5 animate-spin" />
+                                    ) : ch.is_subscribed ? (
+                                        <Check className="w-5 h-5" />
+                                    ) : (
+                                        <Plus className="w-5 h-5" />
+                                    )}
+                                </button>
+                            </div>
                         </motion.div>
                     ))}
                 </div>

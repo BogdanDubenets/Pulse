@@ -23,6 +23,8 @@ interface CatalogState {
     addCustomChannel: (userId: number, url: string) => Promise<{ success: boolean; message: string }>;
     createInvoice: (userId: number, tier: string) => Promise<string | null>;
     placeBid: (userId: number, channelId: number, category: string, amount: number) => Promise<boolean>;
+    subscribeToChannel: (userId: number, channelId: number) => Promise<boolean>;
+    unsubscribeFromChannel: (userId: number, channelId: number) => Promise<boolean>;
 }
 
 export const useCatalogStore = create<CatalogState>((set, get) => ({
@@ -83,8 +85,12 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     fetchChannels: async (category?: string) => {
         set({ channels: [], isLoading: true, error: null });
         try {
-            const url = category ? `/catalog/channels?category=${encodeURIComponent(category)}` : '/catalog/channels';
-            const response = await apiClient.get<ChannelCatalogItem[]>(url);
+            const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 461874849;
+            const params = new URLSearchParams();
+            if (category) params.append('category', category);
+            if (userId) params.append('user_id', userId.toString());
+
+            const response = await apiClient.get<ChannelCatalogItem[]>(`/catalog/channels?${params.toString()}`);
             set({ channels: response.data, isLoading: false });
         } catch (error: any) {
             console.error('Failed to fetch channels:', error);
@@ -114,6 +120,40 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
             return true;
         } catch (error: any) {
             console.error('Failed to place bid:', error);
+            return false;
+        }
+    },
+
+    subscribeToChannel: async (userId: number, channelId: number) => {
+        try {
+            await apiClient.post('/catalog/subscribe', { user_id: userId, channel_id: channelId });
+            // Оновлюємо статус локально для швидкості
+            set(state => ({
+                channels: state.channels.map(ch =>
+                    ch.id === channelId ? { ...ch, is_subscribed: true } : ch
+                )
+            }));
+            await get().fetchUserStatus(userId);
+            return true;
+        } catch (error) {
+            console.error('Failed to subscribe:', error);
+            return false;
+        }
+    },
+
+    unsubscribeFromChannel: async (userId: number, channelId: number) => {
+        try {
+            await apiClient.post('/catalog/unsubscribe', { user_id: userId, channel_id: channelId });
+            // Оновлюємо статус локально
+            set(state => ({
+                channels: state.channels.map(ch =>
+                    ch.id === channelId ? { ...ch, is_subscribed: false } : ch
+                )
+            }));
+            await get().fetchUserStatus(userId);
+            return true;
+        } catch (error) {
+            console.error('Failed to unsubscribe:', error);
             return false;
         }
     }

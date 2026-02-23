@@ -93,6 +93,7 @@ export interface ChannelCatalogItem {
     posts_count_24h: number;
     is_core: boolean;
     avatar_url?: string;
+    is_subscribed: boolean;
 }
 
 export interface User {

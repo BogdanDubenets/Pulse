@@ -17,7 +17,8 @@ import {
     CheckCircle2,
     AlertCircle,
     Star,
-    Crown
+    Crown,
+    Trash2
 } from 'lucide-react';
 
 const PLANS = [
@@ -61,6 +62,7 @@ export const MyChannelsPage: React.FC = () => {
         fetchMyChannels,
         fetchUserStatus,
         addCustomChannel,
+        unsubscribeFromChannel,
         createInvoice
     } = useCatalogStore();
 
@@ -72,6 +74,7 @@ export const MyChannelsPage: React.FC = () => {
     const [selectedTier, setSelectedTier] = useState('standard');
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
     const [imgErrors, setImgErrors] = useState<Record<number, boolean>>({});
+    const [submittingIds, setSubmittingIds] = useState<Record<number, boolean>>({});
 
     const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 461874849;
 
@@ -251,14 +254,36 @@ export const MyChannelsPage: React.FC = () => {
                                 </div>
                             </div>
 
-                            <a
-                                href={ch.username ? `https://t.me/${ch.username}` : '#'}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="p-2 bg-surface border border-border rounded-xl hover:bg-border transition-colors outline-none"
-                            >
-                                <ExternalLink className="w-5 h-5 text-text-muted" />
-                            </a>
+                            <div className="flex items-center space-x-2">
+                                <a
+                                    href={ch.username ? `https://t.me/${ch.username}` : '#'}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="p-2 bg-surface/50 border border-border rounded-xl hover:bg-border transition-colors outline-none"
+                                >
+                                    <ExternalLink className="w-5 h-5 text-text-muted" />
+                                </a>
+
+                                <button
+                                    onClick={async () => {
+                                        if (window.confirm(`Відписатися від ${ch.title}?`)) {
+                                            setSubmittingIds(prev => ({ ...prev, [ch.id]: true }));
+                                            await unsubscribeFromChannel(userId, ch.id);
+                                            setSubmittingIds(prev => ({ ...prev, [ch.id]: false }));
+                                            // Видаляємо зі списку локально
+                                            fetchMyChannels(userId);
+                                        }
+                                    }}
+                                    disabled={submittingIds[ch.id]}
+                                    className="p-2 bg-error/10 text-error border border-error/20 rounded-xl hover:bg-error/20 transition-colors"
+                                >
+                                    {submittingIds[ch.id] ? (
+                                        <Loader2 className="w-5 h-5 animate-spin" />
+                                    ) : (
+                                        <Trash2 className="w-5 h-5" />
+                                    )}
+                                </button>
+                            </div>
                         </motion.div>
                     ))}
                 </div>
