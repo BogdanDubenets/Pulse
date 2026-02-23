@@ -1,7 +1,7 @@
--- Схема бази даних проекту Pulse (версія 1.0)
--- Розроблено згідно з дорожньою картою Antigravity
+-- Схема бази даних проекту Pulse (версія 2.0)
+-- Оновлено для підтримки 3-рівневої системи слотів та особистих кабінетів
 
--- Активація розширення для векторних обчислень (для кластеризації новин)
+-- Активація розширення для векторних обчислень
 CREATE EXTENSION IF NOT EXISTS vector;
 
 -- Таблиця каналів (Джерела інформації)
@@ -11,9 +11,29 @@ CREATE TABLE IF NOT EXISTS channels (
     username TEXT,
     title TEXT NOT NULL,
     category TEXT,
-    credibility_score FLOAT DEFAULT 0.5, -- 0.0 до 1.0
+    credibility_score FLOAT DEFAULT 0.5,
     is_active BOOLEAN DEFAULT TRUE,
+    is_core BOOLEAN DEFAULT FALSE,
+    partner_status TEXT DEFAULT 'organic', -- premium, pinned, organic
+    partner_expires_at TIMESTAMP WITH TIME ZONE,
+    pinned_msg_id BIGINT,
+    posts_count_24h INTEGER DEFAULT 0,
+    avatar_url TEXT,
     last_scanned_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Таблиця користувачів
+CREATE TABLE IF NOT EXISTS users (
+    id BIGINT PRIMARY KEY, -- Telegram User ID
+    first_name TEXT,
+    username TEXT,
+    language_code TEXT DEFAULT 'uk',
+    morning_digest_time TEXT DEFAULT '08:00',
+    evening_digest_time TEXT DEFAULT '20:00',
+    is_active BOOLEAN DEFAULT TRUE,
+    subscription_tier TEXT DEFAULT 'demo',
+    subscription_expires_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -25,12 +45,12 @@ CREATE TABLE IF NOT EXISTS stories (
     category TEXT,
     first_seen_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     last_updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    confidence_score FLOAT DEFAULT 0.0, -- Розраховується на основі джерел
-    status TEXT DEFAULT 'pending', -- pending, verified, trending, archived
-    embedding_vector VECTOR(1536) -- Для OpenAI Embeddings (1536 вимірів)
+    confidence_score FLOAT DEFAULT 0.0,
+    status TEXT DEFAULT 'pending',
+    embedding_vector VECTOR(768) -- Оновлено до 768 для Gemini
 );
 
--- Таблиця публікацій (Конкретні пости в каналах)
+-- Таблиця публікацій
 CREATE TABLE IF NOT EXISTS publications (
     id SERIAL PRIMARY KEY,
     story_id INTEGER REFERENCES stories(id) ON DELETE CASCADE,
@@ -45,26 +65,30 @@ CREATE TABLE IF NOT EXISTS publications (
     UNIQUE(channel_id, telegram_message_id)
 );
 
--- Таблиця підписок користувачів (Для персоналізованих дайджестів)
+-- Таблиця підписок користувачів
 CREATE TABLE IF NOT EXISTS user_subscriptions (
     id SERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL, -- Telegram User ID
+    user_id BIGINT NOT NULL,
     channel_id INTEGER REFERENCES channels(id) ON DELETE CASCADE,
+    position INTEGER DEFAULT 0,
+    last_changed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(user_id, channel_id)
 );
 
--- Таблиця аналітики історій
-CREATE TABLE IF NOT EXISTS story_analytics (
+-- Таблиця аукціонів
+CREATE TABLE IF NOT EXISTS auctions (
     id SERIAL PRIMARY KEY,
-    story_id INTEGER REFERENCES stories(id) ON DELETE CASCADE,
-    spread_speed FLOAT, -- Канали на годину
-    total_reach INTEGER DEFAULT 0,
-    engagement_rate FLOAT DEFAULT 0.0,
-    recorded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    category TEXT,
+    current_bid INTEGER DEFAULT 0, -- В зірках
+    leader_user_id BIGINT,
+    channel_id INTEGER REFERENCES channels(id) ON DELETE CASCADE,
+    ends_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Індекси для швидкого пошуку
+-- Індекси
 CREATE INDEX IF NOT EXISTS idx_stories_status ON stories(status);
 CREATE INDEX IF NOT EXISTS idx_publications_story ON publications(story_id);
 CREATE INDEX IF NOT EXISTS idx_publications_published_at ON publications(published_at);
+CREATE INDEX IF NOT EXISTS idx_auctions_category ON auctions(category);
