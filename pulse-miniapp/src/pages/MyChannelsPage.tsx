@@ -278,6 +278,7 @@ export const MyChannelsPage: React.FC = () => {
 
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isPaywallOpen, setIsPaywallOpen] = useState(false);
+    const [paywallReason, setPaywallReason] = useState<'limit' | 'upsell'>('upsell');
     const [channelUrl, setChannelUrl] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSubscribing, setIsSubscribing] = useState(false);
@@ -332,6 +333,7 @@ export const MyChannelsPage: React.FC = () => {
 
     const handleAddClick = () => {
         if (userStatus && !userStatus.can_add) {
+            setPaywallReason('limit');
             setIsPaywallOpen(true);
         } else if (userStatus && userStatus.tier === 'demo') {
             // Для демо просто переправляємо в каталог
@@ -571,7 +573,10 @@ export const MyChannelsPage: React.FC = () => {
                     {shouldShowLockedSlot() && (
                         <div className="mt-3">
                             <LockedSlot
-                                onClick={() => setIsPaywallOpen(true)}
+                                onClick={() => {
+                                    setPaywallReason('upsell');
+                                    setIsPaywallOpen(true);
+                                }}
                                 tier={userStatus?.tier}
                             />
                         </div>
@@ -746,13 +751,22 @@ export const MyChannelsPage: React.FC = () => {
                             <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-secondary/10 rounded-full blur-3xl" />
 
                             <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center mx-auto border border-primary/20">
-                                <Lock className="w-10 h-10 text-primary" />
+                                {paywallReason === 'upsell' ? (
+                                    <Sparkles className="w-10 h-10 text-primary animate-pulse" />
+                                ) : (
+                                    <Lock className="w-10 h-10 text-primary" />
+                                )}
                             </div>
 
                             <div className="space-y-2">
-                                <h2 className="text-2xl font-bold">Ліміт вичерпано</h2>
+                                <h2 className="text-2xl font-bold">
+                                    {paywallReason === 'upsell' ? 'Розкрийте потенціал Pulse' : 'Час для апгрейду'}
+                                </h2>
                                 <p className="text-text-secondary text-sm">
-                                    На безкоштовному плані ви можете додати максимум <span className="text-primary font-bold">3 канали</span>.
+                                    {paywallReason === 'upsell'
+                                        ? 'Отримайте більше місця для каналів та преміальну AI-аналітику вже зараз.'
+                                        : `Ви досягли ліміту (${userStatus?.limit} каналів). Перейдіть на наступний рівень, щоб додати більше.`
+                                    }
                                 </p>
                             </div>
 
