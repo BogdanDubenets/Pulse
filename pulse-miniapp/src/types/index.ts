@@ -94,6 +94,8 @@ export interface ChannelCatalogItem {
     is_core: boolean;
     avatar_url?: string;
     is_subscribed: boolean;
+    is_limit_active?: boolean;
+    can_unsubscribe_at?: string;
 }
 
 export interface User {

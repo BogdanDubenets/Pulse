@@ -38,6 +38,9 @@ class ChannelCatalogItem(BaseModel):
     is_core: bool
     avatar_url: Optional[str] = None
     is_subscribed: bool = False
+    is_limit_active: bool = True
+    partner_status: str = "organic"
+    posts_count_24h: int = 0
 
 class AuctionBidRequest(BaseModel):
     user_id: int
@@ -118,19 +121,39 @@ async def get_channels(
 @router.get("/my-channels/{user_id}", response_model=List[ChannelCatalogItem])
 async def get_my_channels(user_id: int, db: AsyncSession = Depends(get_db)):
     """Отримати канали, на які підписаний користувач"""
+    # Отримуємо ліміт користувача
+    status = await get_user_status(user_id, db)
+    user_limit = status["limit"]
+
+    # Канали відсортовані за алфавітом у запиті, але для лімітів 
+    # бекенд дайджесту використовує дату підписки. 
+    # Тут ми зробимо так само для консистентності.
     from database.models import UserSubscription
     stmt = (
-        select(Channel)
+        select(Channel, UserSubscription.last_changed_at)
         .join(UserSubscription, Channel.id == UserSubscription.channel_id)
         .where(UserSubscription.user_id == user_id, Channel.is_active == True)
-        .order_by(Channel.title)
+        .order_by(UserSubscription.created_at.asc())
     )
     result = await db.execute(stmt)
-    channels_db = result.scalars().all()
+    rows = result.all()
+    
+    from datetime import timezone
+    now = datetime.now(timezone.utc)
     
     channels = []
-    for ch in channels_db:
+    for idx, (ch, last_changed) in enumerate(rows):
         avatar = ch.avatar_url or f"/api/v1/catalog/photo/{ch.telegram_id}"
+        is_active_for_limit = idx < user_limit
+        
+        # Вираховуємо час розморозки
+        can_unsubscribe_at = None
+        if last_changed:
+            # Завжди працюємо з UTC
+            lc_utc = last_changed.replace(tzinfo=timezone.utc) if not last_changed.tzinfo else last_changed
+            cooldown_end = lc_utc + timedelta(hours=24)
+            can_unsubscribe_at = cooldown_end.isoformat()
+        
         channels.append(ChannelCatalogItem(
             id=ch.id,
             username=ch.username,
@@ -140,7 +163,9 @@ async def get_my_channels(user_id: int, db: AsyncSession = Depends(get_db)):
             posts_count_24h=ch.posts_count_24h,
             is_core=ch.is_core,
             avatar_url=avatar,
-            is_subscribed=True
+            is_subscribed=True,
+            is_limit_active=is_active_for_limit,
+            can_unsubscribe_at=can_unsubscribe_at
         ))
     return channels
 
@@ -187,6 +212,23 @@ async def unsubscribe(req: SubscribeRequest, db: AsyncSession = Depends(get_db))
     sub = res.scalar_one_or_none()
     
     if sub:
+        # Перевірка 24-годинного ліміту
+        from datetime import timezone
+        now = datetime.now(timezone.utc)
+        lc_utc = sub.last_changed_at.replace(tzinfo=timezone.utc) if not sub.last_changed_at.tzinfo else sub.last_changed_at
+        cooldown_end = lc_utc + timedelta(hours=24)
+        
+        if now < cooldown_end:
+            remaining = cooldown_end - now
+            hours, remainder = divmod(int(remaining.total_seconds()), 3600)
+            minutes, _ = divmod(remainder, 60)
+            time_str = f"{hours}г {minutes}хв" if hours > 0 else f"{minutes}хв"
+            
+            raise HTTPException(
+                status_code=403, 
+                detail=f"Цей слот заморожено на 24г. Залишилось: {time_str}. Це захист від зловживань."
+            )
+
         await db.delete(sub)
         await db.commit()
     

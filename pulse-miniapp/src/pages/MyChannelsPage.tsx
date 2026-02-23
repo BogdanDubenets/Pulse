@@ -21,7 +21,8 @@ import {
     Trash2,
     LayoutGrid,
     Bookmark,
-    UserCog
+    UserCog,
+    Clock
 } from 'lucide-react';
 
 const PLANS = [
@@ -201,26 +202,54 @@ export const MyChannelsPage: React.FC = () => {
                     </div>
                 </header>
 
+                {/* Overlimit Warning Banner */}
+                {userStatus && userStatus.sub_count > userStatus.limit && (
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="mx-4 mb-4 p-3 bg-error text-white rounded-xl text-[11px] font-bold flex items-center gap-2 shadow-lg shadow-error/20"
+                    >
+                        <AlertCircle size={14} className="flex-shrink-0" />
+                        <span className="flex-1 opacity-90">Ми змушені призупинити новини з зайвих каналів. Оновіть план або видаліть слоти!</span>
+                        <button
+                            onClick={() => navigate('/cabinet')}
+                            className="flex-shrink-0 bg-white/20 hover:bg-white/30 px-2 py-1.5 rounded-lg transition-colors border border-white/20"
+                        >
+                            Доплатити
+                        </button>
+                    </motion.div>
+                )}
+
                 {/* Status Bar */}
                 {userStatus && (
                     <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="p-4 bg-surface/50 border border-border backdrop-blur-md rounded-2xl flex items-center justify-between"
+                        className={`p-4 border backdrop-blur-md rounded-2xl flex items-center justify-between transition-all ${userStatus.sub_count > userStatus.limit
+                            ? 'bg-error/10 border-error/30 shadow-lg shadow-error/5'
+                            : 'bg-surface/50 border-border shadow-sm'
+                            }`}
                     >
                         <div className="flex items-center space-x-3">
-                            <div className={`p-2 rounded-xl border ${userStatus.tier === 'premium' ? 'bg-primary/10 border-primary text-primary' : 'bg-surface border-border text-text-secondary'}`}>
-                                <Zap className="w-5 h-5" />
+                            <div className={`p-2 rounded-xl border transition-colors ${userStatus.sub_count > userStatus.limit
+                                ? 'bg-error/20 border-error text-error animate-pulse'
+                                : (userStatus.tier === 'premium' ? 'bg-primary/10 border-primary text-primary' : 'bg-surface border-border text-text-secondary')
+                                }`}>
+                                {userStatus.sub_count > userStatus.limit ? <AlertCircle className="w-5 h-5" /> : <Zap className="w-5 h-5" />}
                             </div>
                             <div>
-                                <p className="text-[10px] uppercase font-bold tracking-wider text-text-muted">Мій План</p>
-                                <p className="font-bold capitalize">{userStatus.tier}</p>
+                                <p className={`text-[10px] uppercase font-bold tracking-wider ${userStatus.sub_count > userStatus.limit ? 'text-error animate-pulse' : 'text-text-muted'}`}>
+                                    {userStatus.sub_count > userStatus.limit ? 'Ліміт перевищено' : 'Мій План'}
+                                </p>
+                                <p className="font-bold capitalize leading-none pt-0.5">{userStatus.tier}</p>
                             </div>
                         </div>
                         <div className="text-right">
                             <p className="text-[10px] uppercase font-bold tracking-wider text-text-muted">Ліміт каналів</p>
                             <p className="font-bold">
-                                <span className="text-primary">{userStatus.sub_count}</span>
+                                <span className={userStatus.sub_count > userStatus.limit ? 'text-error' : 'text-primary'}>
+                                    {userStatus.sub_count}
+                                </span>
                                 <span className="text-text-muted"> / {userStatus.limit}</span>
                             </p>
                         </div>
@@ -244,90 +273,131 @@ export const MyChannelsPage: React.FC = () => {
                         </div>
                     )}
 
-                    {channels.map((ch, index) => (
-                        <motion.div
-                            key={ch.id}
-                            initial={{ x: -20, opacity: 0 }}
-                            animate={{ x: 0, opacity: 1 }}
-                            transition={{ delay: index * 0.05 }}
-                            className={`p-4 bg-surface border rounded-2xl flex items-center justify-between ${ch.partner_status === 'premium' ? 'border-primary shadow-lg shadow-primary/5' : 'border-border'
-                                }`}
-                        >
-                            <div className="flex items-center space-x-4 flex-1 min-w-0">
-                                <div className="relative">
-                                    <div className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-border to-surface flex items-center justify-center text-xl font-bold border border-border">
-                                        {ch.avatar_url && !imgErrors[ch.id] ? (
-                                            <motion.img
-                                                initial={{ opacity: 0 }}
-                                                animate={{ opacity: 1 }}
-                                                transition={{ duration: 0.3 }}
-                                                src={`${API_ORIGIN}${ch.avatar_url}`}
-                                                alt={ch.title}
-                                                className="w-full h-full object-cover"
-                                                loading="lazy"
-                                                onError={() => {
-                                                    setImgErrors(prev => ({ ...prev, [ch.id]: true }));
-                                                }}
-                                            />
-                                        ) : (
-                                            ch.title.charAt(0)
+                    {channels.map((ch, index) => {
+                        const isFrozen = ch.is_limit_active === false;
+                        return (
+                            <motion.div
+                                key={ch.id}
+                                initial={{ x: -20, opacity: 0 }}
+                                animate={{ x: 0, opacity: 1 }}
+                                transition={{ delay: index * 0.05 }}
+                                className={`relative p-4 bg-surface border rounded-2xl flex items-center justify-between transition-all ${isFrozen
+                                    ? 'grayscale-[0.6] opacity-60 border-dashed border-error/30 scale-[0.98]'
+                                    : (ch.partner_status === 'premium' ? 'border-primary shadow-lg shadow-primary/5' : 'border-border')
+                                    }`}
+                            >
+                                {isFrozen && (
+                                    <div className="absolute top-2 left-2 bg-error text-white text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md transform -rotate-12 z-10 border border-white/20 shadow-sm animate-pulse">
+                                        Frozen
+                                    </div>
+                                )}
+                                <div className="flex items-center space-x-4 flex-1 min-w-0">
+                                    <div className="relative">
+                                        <div className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-border to-surface flex items-center justify-center text-xl font-bold border border-border">
+                                            {ch.avatar_url && !imgErrors[ch.id] ? (
+                                                <motion.img
+                                                    initial={{ opacity: 0 }}
+                                                    animate={{ opacity: 1 }}
+                                                    transition={{ duration: 0.3 }}
+                                                    src={`${API_ORIGIN}${ch.avatar_url}`}
+                                                    alt={ch.title}
+                                                    className="w-full h-full object-cover"
+                                                    loading="lazy"
+                                                    onError={() => {
+                                                        setImgErrors(prev => ({ ...prev, [ch.id]: true }));
+                                                    }}
+                                                />
+                                            ) : (
+                                                ch.title.charAt(0)
+                                            )}
+                                        </div>
+                                        {ch.partner_status === 'premium' && (
+                                            <div className="absolute -top-1 -right-1 bg-primary p-1 rounded-full border-2 border-surface">
+                                                <Zap className="w-3 h-3 text-white fill-current" />
+                                            </div>
                                         )}
                                     </div>
-                                    {ch.partner_status === 'premium' && (
-                                        <div className="absolute -top-1 -right-1 bg-primary p-1 rounded-full border-2 border-surface">
-                                            <Zap className="w-3 h-3 text-white fill-current" />
+                                    <div className="space-y-1">
+                                        <div className="flex items-center space-x-2">
+                                            <h3 className="font-bold leading-tight truncate">{ch.title}</h3>
+                                            {ch.partner_status === 'pinned' && <Pin className="w-3 h-3 text-secondary" />}
                                         </div>
-                                    )}
-                                </div>
-                                <div className="space-y-1">
-                                    <div className="flex items-center space-x-2">
-                                        <h3 className="font-bold leading-tight truncate">{ch.title}</h3>
-                                        {ch.partner_status === 'pinned' && <Pin className="w-3 h-3 text-secondary" />}
-                                    </div>
-                                    <div className="flex items-center space-x-3 text-xs text-text-muted">
-                                        <span className="flex items-center space-x-1">
-                                            <BarChart3 className="w-3 h-3" />
-                                            <span>{ch.posts_count_24h} постів/24г</span>
-                                        </span>
-                                        <span className="bg-surface-secondary px-2 py-0.5 rounded text-[10px] uppercase font-bold text-text-muted border border-border">
-                                            {ch.category || 'Без категорії'}
-                                        </span>
+                                        <div className="flex items-center space-x-3 text-xs text-text-muted">
+                                            <span className="flex items-center space-x-1">
+                                                <BarChart3 className="w-3 h-3" />
+                                                <span>{ch.posts_count_24h} постів/24г</span>
+                                            </span>
+                                            <span className="bg-surface-secondary px-2 py-0.5 rounded text-[10px] uppercase font-bold text-text-muted border border-border">
+                                                {ch.category || 'Без категорії'}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
-                                <a
-                                    href={ch.username ? `https://t.me/${ch.username}` : '#'}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="p-2 bg-surface/50 border border-border rounded-xl hover:bg-border transition-colors outline-none"
-                                >
-                                    <ExternalLink className="w-5 h-5 text-text-muted" />
-                                </a>
+                                <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
+                                    <a
+                                        href={ch.username ? `https://t.me/${ch.username}` : '#'}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="p-2 bg-surface/50 border border-border rounded-xl hover:bg-border transition-colors outline-none"
+                                    >
+                                        <ExternalLink className="w-5 h-5 text-text-muted" />
+                                    </a>
 
-                                <button
-                                    onClick={async () => {
-                                        if (window.confirm(`Відписатися від ${ch.title}?`)) {
-                                            setSubmittingIds(prev => ({ ...prev, [ch.id]: true }));
-                                            await unsubscribeFromChannel(userId, ch.id);
-                                            setSubmittingIds(prev => ({ ...prev, [ch.id]: false }));
-                                            // Видаляємо зі списку локально
-                                            fetchMyChannels(userId);
-                                        }
-                                    }}
-                                    disabled={submittingIds[ch.id]}
-                                    className="p-2 bg-error/10 text-error border border-error/20 rounded-xl hover:bg-error/20 transition-colors"
-                                >
-                                    {submittingIds[ch.id] ? (
-                                        <Loader2 className="w-5 h-5 animate-spin" />
-                                    ) : (
-                                        <Trash2 className="w-5 h-5" />
-                                    )}
-                                </button>
-                            </div>
-                        </motion.div>
-                    ))}
+                                    <button
+                                        onClick={async (e) => {
+                                            e.stopPropagation();
+                                            const canUnsubscribeAt = ch.can_unsubscribe_at ? new Date(ch.can_unsubscribe_at) : null;
+                                            const isLocked = canUnsubscribeAt ? canUnsubscribeAt > new Date() : false;
+
+                                            if (isLocked) {
+                                                const remainingMs = canUnsubscribeAt!.getTime() - new Date().getTime();
+                                                const hours = Math.floor(remainingMs / 3600000);
+                                                const minutes = Math.floor((remainingMs % 3600000) / 60000);
+                                                const timeStr = hours > 0 ? `${hours}г ${minutes}хв` : `${minutes}хв`;
+
+                                                const webApp = (window as any).Telegram?.WebApp;
+                                                const msg = `Цей слот заморожено на 24г для запобігання зловживанням. Ви зможете змінити його через ${timeStr}.`;
+
+                                                if (webApp?.showPopup) {
+                                                    webApp.showPopup({
+                                                        title: 'Слот заморожено',
+                                                        message: msg,
+                                                        buttons: [{ type: 'ok', text: 'Зрозуміло' }]
+                                                    });
+                                                } else {
+                                                    alert(msg);
+                                                }
+                                                return;
+                                            }
+
+                                            if (window.confirm(`Відписатися від ${ch.title}?`)) {
+                                                setSubmittingIds(prev => ({ ...prev, [ch.id]: true }));
+                                                await unsubscribeFromChannel(userId, ch.id);
+                                                setSubmittingIds(prev => ({ ...prev, [ch.id]: false }));
+                                                fetchMyChannels(userId);
+                                            }
+                                        }}
+                                        disabled={submittingIds[ch.id]}
+                                        className={`p-2 border rounded-xl transition-colors ${(ch.can_unsubscribe_at && new Date(ch.can_unsubscribe_at) > new Date())
+                                                ? 'bg-surface border-border text-text-muted opacity-50'
+                                                : 'bg-error/10 text-error border-error/20 hover:bg-error/20'
+                                            }`}
+                                    >
+                                        {submittingIds[ch.id] ? (
+                                            <Loader2 className="w-5 h-5 animate-spin" />
+                                        ) : (
+                                            (ch.can_unsubscribe_at && new Date(ch.can_unsubscribe_at) > new Date()) ? (
+                                                <Clock className="w-5 h-5" />
+                                            ) : (
+                                                <Trash2 className="w-5 h-5" />
+                                            )
+                                        )}
+                                    </button>
+                                </div>
+                            </motion.div>
+                        );
+                    })}
                 </div>
 
                 {error && (
