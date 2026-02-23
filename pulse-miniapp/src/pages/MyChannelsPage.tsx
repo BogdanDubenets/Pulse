@@ -59,6 +59,46 @@ const PLANS = [
     }
 ];
 
+const LockedSlot = ({ onClick, tier }: { onClick: () => void, tier?: string }) => {
+    return (
+        <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            onClick={onClick}
+            className="relative group bg-surface/20 border-2 border-dashed border-border/30 rounded-2xl p-4 cursor-pointer hover:border-primary/50 transition-all overflow-hidden"
+        >
+            {/* Shimmer Effect */}
+            <div className="absolute inset-0 w-full h-full">
+                <motion.div
+                    animate={{
+                        x: ['-100%', '200%'],
+                    }}
+                    transition={{
+                        duration: 8,
+                        repeat: Infinity,
+                        ease: "linear",
+                        repeatDelay: 5
+                    }}
+                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent w-1/2 -skew-x-12"
+                />
+            </div>
+
+            <div className="flex items-center space-x-4 relative z-10">
+                <div className="w-12 h-12 rounded-xl bg-surface-secondary/30 border border-border/50 flex items-center justify-center text-primary/40 group-hover:text-primary transition-colors">
+                    {tier === 'premium' ? <Crown size={24} /> : <Lock size={20} />}
+                </div>
+                <div className="flex-1">
+                    <h3 className="font-bold text-text-muted group-hover:text-text-primary transition-colors">Розблокувати слот</h3>
+                    <p className="text-[10px] text-text-muted font-bold tracking-wider uppercase opacity-50">Наступний рівень</p>
+                </div>
+                <div className="p-2 text-primary opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
+                    <Sparkles size={20} />
+                </div>
+            </div>
+        </motion.div>
+    );
+};
+
 interface ChannelItemProps {
     ch: any;
     index: number;
@@ -247,6 +287,17 @@ export const MyChannelsPage: React.FC = () => {
     const [submittingIds, setSubmittingIds] = useState<Record<number, boolean>>({});
     const [localChannels, setLocalChannels] = useState<any[]>([]);
     const [hasOrderChanged, setHasOrderChanged] = useState(false);
+
+    // Логіка відображення Locked Slot
+    const shouldShowLockedSlot = () => {
+        if (!userStatus) return false;
+
+        // Для Demo завжди показуємо
+        if (userStatus.tier === 'demo') return true;
+
+        // Для інших (paid) якщо кількість каналів >= ліміт - 1
+        return userStatus.sub_count >= userStatus.limit - 1;
+    };
 
     const userId = getUserId();
 
@@ -515,6 +566,16 @@ export const MyChannelsPage: React.FC = () => {
                             );
                         })}
                     </Reorder.Group>
+
+                    {/* Locked Upsell Slot */}
+                    {shouldShowLockedSlot() && (
+                        <div className="mt-3">
+                            <LockedSlot
+                                onClick={() => setIsPaywallOpen(true)}
+                                tier={userStatus?.tier}
+                            />
+                        </div>
+                    )}
                 </div>
 
                 {error && (
