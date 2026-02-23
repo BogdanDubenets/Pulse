@@ -253,7 +253,7 @@ export const MyChannelsPage: React.FC = () => {
                             className={`p-4 bg-surface border rounded-2xl flex items-center justify-between ${ch.partner_status === 'premium' ? 'border-primary shadow-lg shadow-primary/5' : 'border-border'
                                 }`}
                         >
-                            <div className="flex items-center space-x-4">
+                            <div className="flex items-center space-x-4 flex-1 min-w-0">
                                 <div className="relative">
                                     <div className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-border to-surface flex items-center justify-center text-xl font-bold border border-border">
                                         {ch.avatar_url && !imgErrors[ch.id] ? (
@@ -281,7 +281,7 @@ export const MyChannelsPage: React.FC = () => {
                                 </div>
                                 <div className="space-y-1">
                                     <div className="flex items-center space-x-2">
-                                        <h3 className="font-bold leading-tight">{ch.title}</h3>
+                                        <h3 className="font-bold leading-tight truncate">{ch.title}</h3>
                                         {ch.partner_status === 'pinned' && <Pin className="w-3 h-3 text-secondary" />}
                                     </div>
                                     <div className="flex items-center space-x-3 text-xs text-text-muted">
@@ -296,7 +296,7 @@ export const MyChannelsPage: React.FC = () => {
                                 </div>
                             </div>
 
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
                                 <a
                                     href={ch.username ? `https://t.me/${ch.username}` : '#'}
                                     target="_blank"
