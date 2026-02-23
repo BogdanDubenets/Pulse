@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { useCatalogStore } from '../store/catalogStore';
 import { API_ORIGIN } from '../api/client';
+import { getUserId } from '../utils/telegram';
 import {
     ArrowLeft,
     ExternalLink,
@@ -247,7 +248,7 @@ export const MyChannelsPage: React.FC = () => {
     const [localChannels, setLocalChannels] = useState<any[]>([]);
     const [hasOrderChanged, setHasOrderChanged] = useState(false);
 
-    const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 461874849;
+    const userId = getUserId();
 
     useEffect(() => {
         fetchMyChannels(userId);

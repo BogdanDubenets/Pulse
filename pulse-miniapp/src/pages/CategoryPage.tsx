@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { useCatalogStore } from '../store/catalogStore';
 import { API_ORIGIN } from '../api/client';
+import { getUserId } from '../utils/telegram';
 import {
     ArrowLeft,
     ExternalLink,
@@ -39,8 +40,8 @@ const PromotionSlot: React.FC<{
 
             {channel ? (
                 <div className={`p-2.5 bg-surface border rounded-xl flex items-center justify-between transition-all ${type === 'auction' ? 'border-accent/40 bg-gradient-to-r from-surface to-accent/5 shadow-sm shadow-accent/5' :
-                        type === 'premium' ? 'border-primary/40 bg-gradient-to-r from-surface to-primary/5 shadow-sm shadow-primary/5' :
-                            'border-secondary/20 bg-gradient-to-r from-surface to-secondary/5'
+                    type === 'premium' ? 'border-primary/40 bg-gradient-to-r from-surface to-primary/5 shadow-sm shadow-primary/5' :
+                        'border-secondary/20 bg-gradient-to-r from-surface to-secondary/5'
                     }`}>
                     <div className="flex items-center space-x-3">
                         <div className="relative">
@@ -74,8 +75,8 @@ const PromotionSlot: React.FC<{
                         <button
                             onClick={onDetail}
                             className={`px-2 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${type === 'auction' ? 'bg-accent/10 text-accent' :
-                                    type === 'premium' ? 'bg-primary/10 text-primary' :
-                                        'bg-secondary/10 text-secondary'
+                                type === 'premium' ? 'bg-primary/10 text-primary' :
+                                    'bg-secondary/10 text-secondary'
                                 }`}
                         >
                             Інфо
@@ -111,7 +112,7 @@ export const CategoryPage: React.FC = () => {
     const [imgErrors, setImgErrors] = useState<Record<number, boolean>>({});
     const [submittingIds, setSubmittingIds] = useState<Record<number, boolean>>({});
 
-    const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 461874849;
+    const userId = getUserId();
 
     useEffect(() => {
         if (category) {

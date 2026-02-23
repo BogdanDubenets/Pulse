@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Layout } from '../components/Layout';
 import { useCatalogStore } from '../store/catalogStore';
 import { API_ORIGIN } from '../api/client';
+import { getUserId } from '../utils/telegram';
 import {
     Trophy,
     Zap,
@@ -40,7 +41,7 @@ export const CabinetPage: React.FC = () => {
     const [isProcessing, setIsProcessing] = useState(false);
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
-    const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 461874849;
+    const userId = getUserId();
 
     const location = useLocation();
 
@@ -55,7 +56,7 @@ export const CabinetPage: React.FC = () => {
 
             if (state.section) {
                 setTimeout(() => {
-                    const el = document.getElementById(`section-${state.section}`);
+                    const el = document.getElementById(`section - ${state.section} `);
                     if (el) el.scrollIntoView({ behavior: 'smooth' });
                 }, 300);
             }
@@ -132,8 +133,8 @@ export const CabinetPage: React.FC = () => {
                             initial={{ opacity: 0, y: -20 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className={`p-4 rounded-2xl flex items-center space-x-3 shadow-lg border ${feedback.type === 'success' ? 'bg-success/10 border-success/20 text-success' : 'bg-error/10 border-error/20 text-error'
-                                }`}
+                            className={`p - 4 rounded - 2xl flex items - center space - x - 3 shadow - lg border ${feedback.type === 'success' ? 'bg-success/10 border-success/20 text-success' : 'bg-error/10 border-error/20 text-error'
+                                } `}
                         >
                             {feedback.type === 'success' ? <CheckCircle2 className="w-5 h-5 flex-shrink-0" /> : <AlertCircle className="w-5 h-5 flex-shrink-0" />}
                             <span className="text-sm font-bold">{feedback.message}</span>
@@ -153,15 +154,15 @@ export const CabinetPage: React.FC = () => {
                             <button
                                 key={ch.id}
                                 onClick={() => setSelectedChannel(ch)}
-                                className={`flex-shrink-0 w-48 p-4 rounded-2xl border transition-all text-left relative overflow-hidden ${selectedChannel?.id === ch.id
-                                    ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
-                                    : 'border-white/5 bg-surface/40'
-                                    }`}
+                                className={`flex - shrink - 0 w - 48 p - 4 rounded - 2xl border transition - all text - left relative overflow - hidden ${selectedChannel?.id === ch.id
+                                        ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                                        : 'border-white/5 bg-surface/40'
+                                    } `}
                             >
                                 <div className="flex items-center space-x-3 relative z-10">
                                     <div className="w-10 h-10 rounded-xl bg-surface-secondary border border-border flex items-center justify-center overflow-hidden font-bold text-primary">
                                         {ch.avatar_url ? (
-                                            <img src={`${API_ORIGIN}${ch.avatar_url}`} alt={ch.title} className="w-full h-full object-cover" />
+                                            <img src={`${API_ORIGIN}${ch.avatar_url} `} alt={ch.title} className="w-full h-full object-cover" />
                                         ) : ch.title.charAt(0)}
                                     </div>
                                     <div className="min-w-0">
@@ -183,15 +184,15 @@ export const CabinetPage: React.FC = () => {
                 <div className="grid grid-cols-2 gap-3">
                     <button
                         onClick={() => setActiveTab('auctions')}
-                        className={`py-3 rounded-xl font-bold transition-all border ${activeTab === 'auctions' ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20' : 'bg-surface/40 border-border text-text-muted'
-                            }`}
+                        className={`py - 3 rounded - xl font - bold transition - all border ${activeTab === 'auctions' ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20' : 'bg-surface/40 border-border text-text-muted'
+                            } `}
                     >
                         Аукціони (Top-1)
                     </button>
                     <button
                         onClick={() => setActiveTab('promote')}
-                        className={`py-3 rounded-xl font-bold transition-all border ${activeTab === 'promote' ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20' : 'bg-surface/40 border-border text-text-muted'
-                            }`}
+                        className={`py - 3 rounded - xl font - bold transition - all border ${activeTab === 'promote' ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20' : 'bg-surface/40 border-border text-text-muted'
+                            } `}
                     >
                         Постійні слоти
                     </button>
@@ -229,7 +230,7 @@ export const CabinetPage: React.FC = () => {
                                         <div className="flex items-center justify-between pt-2 border-t border-border/50">
                                             <div className="flex items-center space-x-2 text-xs text-text-muted">
                                                 <Clock className="w-3 h-3" />
-                                                <span>{auc.ends_at ? `До ${new Date(auc.ends_at).toLocaleTimeString()}` : '24г залишилось'}</span>
+                                                <span>{auc.ends_at ? `До ${new Date(auc.ends_at).toLocaleTimeString()} ` : '24г залишилось'}</span>
                                             </div>
                                             <button
                                                 onClick={() => handleBid(auc)}

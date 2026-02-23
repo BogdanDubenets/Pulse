@@ -7,12 +7,14 @@ import { CabinetPage } from './pages/CabinetPage';
 import { MyChannelsPage } from './pages/MyChannelsPage';
 import { useThemeStore } from './store/themeStore';
 import { useEffect } from 'react';
+import { initWebApp } from './utils/telegram';
 
 // Build verification: 6500037_v3_461874849
 function App() {
   const initTheme = useThemeStore(state => state.initTheme);
 
   useEffect(() => {
+    initWebApp();
     initTheme();
   }, [initTheme]);
 

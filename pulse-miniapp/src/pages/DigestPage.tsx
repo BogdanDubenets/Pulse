@@ -6,11 +6,10 @@ import type { Story, BriefNews } from '../types';
 import Markdown from 'react-markdown';
 import { CategorySectionUnified } from '../components/CategorySectionUnified';
 import { DigestListItem } from '../components/DigestListItem';
+import { getUserId } from '../utils/telegram';
 
 export const DigestPage: React.FC = () => {
-    const webApp = window.Telegram?.WebApp;
-    const tgUserId = webApp?.initDataUnsafe?.user?.id;
-    const userId = tgUserId || 461874849;
+    const userId = getUserId();
 
     const { digest, isLoading, isRefreshing, error, fetchDigest } = useDigestStore();
     const [selectedItem, setSelectedItem] = useState<Story | BriefNews | null>(null);

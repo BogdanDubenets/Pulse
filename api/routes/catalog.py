@@ -448,6 +448,7 @@ async def verify_partner_pin(req: PartnerVerifyRequest, db: AsyncSession = Depen
     
     await db.commit()
     return {"status": "ok", "message": "Закреп підтверджено! Статус діє 7 днів."}
+@router.get("/user/status/{user_id}")
 async def get_user_status(user_id: int, db: AsyncSession = Depends(get_db)):
     """Отримати статус підписки та кількість каналів"""
     user_res = await db.execute(select(User).where(User.id == user_id))

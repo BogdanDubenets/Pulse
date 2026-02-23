@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { CatalogCategory, ChannelCatalogItem } from '../types';
 import { apiClient } from '../api/client';
+import { getUserId } from '../utils/telegram';
 
 export interface UserStatus {
     tier: string;
@@ -45,6 +46,15 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
             set({ userStatus: response.data });
         } catch (error) {
             console.error('Failed to fetch user status:', error);
+            // Скидаємо в базовий стан при помилці, щоб уникнути нескінченного завантаження
+            set({
+                userStatus: {
+                    tier: 'demo',
+                    sub_count: 0,
+                    limit: 3,
+                    can_add: true
+                }
+            });
         }
     },
 
@@ -94,7 +104,7 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     fetchChannels: async (category?: string) => {
         set({ channels: [], isLoading: true, error: null });
         try {
-            const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 461874849;
+            const userId = getUserId();
             const params = new URLSearchParams();
             if (category) params.append('category', category);
             if (userId) params.append('user_id', userId.toString());
