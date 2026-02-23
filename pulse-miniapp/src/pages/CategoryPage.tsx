@@ -196,16 +196,28 @@ export const CategoryPage: React.FC = () => {
                                                     if (window.Telegram?.WebApp) {
                                                         const webApp = window.Telegram.WebApp as any;
                                                         if (webApp.isVersionAtLeast && webApp.isVersionAtLeast('6.2')) {
-                                                            webApp.showAlert(
-                                                                'Ліміт підписок вичерпано. Перейдіть до керування планом для розширення ліміту.',
-                                                                () => navigate('/catalog/my')
-                                                            );
+                                                            webApp.showPopup({
+                                                                title: 'Ліміт підписок',
+                                                                message: 'Ви досягли ліміту підписок для вашого тарифу. Бажаєте оновити план?',
+                                                                buttons: [
+                                                                    { id: 'upgrade', type: 'default', text: 'Оновити план' },
+                                                                    { id: 'cancel', type: 'cancel', text: 'Пізніше' }
+                                                                ]
+                                                            }, (buttonId: string) => {
+                                                                if (buttonId === 'upgrade') {
+                                                                    navigate('/catalog/my');
+                                                                }
+                                                            });
                                                         } else {
-                                                            alert('Ліміт підписок вичерпано. Перейдіть до керування планом.');
-                                                            navigate('/catalog/my');
+                                                            // Fallback для старих версій Telegram
+                                                            if (confirm('Ліміт підписок вичерпано. Бажаєте перейти до керування планом?')) {
+                                                                navigate('/catalog/my');
+                                                            }
                                                         }
                                                     } else {
-                                                        navigate('/catalog/my');
+                                                        if (confirm('Ліміт підписок вичерпано. Бажаєте перейти до керування планом?')) {
+                                                            navigate('/catalog/my');
+                                                        }
                                                     }
                                                     return;
                                                 }
