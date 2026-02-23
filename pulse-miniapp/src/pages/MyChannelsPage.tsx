@@ -169,13 +169,6 @@ export const MyChannelsPage: React.FC = () => {
                         </div>
 
                         <div className="flex items-center space-x-3">
-                            <button
-                                onClick={handleAddClick}
-                                className="p-2.5 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 active:scale-90 transition-all"
-                                title="Додати канал"
-                            >
-                                <Plus className="w-5 h-5" />
-                            </button>
 
                             <div className="flex p-1 bg-surface/40 backdrop-blur-md rounded-xl border border-border/50 shadow-sm">
                                 <button
@@ -209,9 +202,12 @@ export const MyChannelsPage: React.FC = () => {
                     <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className={`p-4 border backdrop-blur-md rounded-2xl flex items-center justify-between transition-all ${userStatus.sub_count > userStatus.limit
-                            ? 'bg-error/10 border-error/30 shadow-lg shadow-error/5'
-                            : 'bg-surface/50 border-border shadow-sm'
+                        whileHover={{ scale: 1.01 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={handleAddClick}
+                        className={`p-4 border backdrop-blur-md rounded-2xl flex items-center justify-between transition-all cursor-pointer group ${userStatus.sub_count > userStatus.limit
+                            ? 'bg-error/10 border-error/30 shadow-lg shadow-error/5 hover:bg-error/20'
+                            : 'bg-surface/50 border-border shadow-sm hover:border-primary/50'
                             }`}
                     >
                         <div className="flex items-center space-x-3">
@@ -235,14 +231,23 @@ export const MyChannelsPage: React.FC = () => {
                                 </div>
                             </div>
                         </div>
-                        <div className="text-right">
-                            <p className="text-[10px] uppercase font-bold tracking-wider text-text-muted">Зайнято слотів</p>
-                            <p className="font-bold text-lg">
-                                <span className={userStatus.sub_count > userStatus.limit ? 'text-error' : 'text-primary'}>
-                                    {userStatus.sub_count}
-                                </span>
-                                <span className="text-text-muted"> / {userStatus.limit}</span>
-                            </p>
+
+                        <div className="flex items-center space-x-4">
+                            <div className="text-right">
+                                <p className="text-[10px] uppercase font-bold tracking-wider text-text-muted">Зайнято слотів</p>
+                                <p className="font-bold text-lg">
+                                    <span className={userStatus.sub_count > userStatus.limit ? 'text-error' : 'text-primary'}>
+                                        {userStatus.sub_count}
+                                    </span>
+                                    <span className="text-text-muted"> / {userStatus.limit}</span>
+                                </p>
+                            </div>
+                            <div className={`p-2 rounded-xl transition-all ${userStatus.sub_count > userStatus.limit
+                                ? 'bg-error text-white'
+                                : 'bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white shadow-lg shadow-primary/10'
+                                }`}>
+                                <Plus className="w-5 h-5" />
+                            </div>
                         </div>
                     </motion.div>
                 )}
