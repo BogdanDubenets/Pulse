@@ -16,7 +16,7 @@ import {
     Clock,
     UserCog
 } from 'lucide-react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 
 const PREMIUM_PLANS = [
     { days: 7, price: 1, label: '7 днів' },
