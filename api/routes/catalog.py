@@ -492,8 +492,11 @@ async def get_user_status(user_id: int, db: AsyncSession = Depends(get_db)):
 @router.post("/add-custom-channel")
 async def add_custom_channel(req: CustomChannelRequest, db: AsyncSession = Depends(get_db)):
     """Додати власний канал за посиланням"""
-    # 1. Перевірка лімітів
+    # 1. Перевірка лімітів та плану
     status = await get_user_status(req.user_id, db)
+    if status["tier"] == "demo":
+         raise HTTPException(status_code=403, detail="Додавання власних каналів доступне лише на платних планах. Будь ласка, виберіть з каталогу або покращте план.")
+    
     if not status["can_add"]:
         raise HTTPException(status_code=403, detail=f"Ви досягли ліміту ({status['limit']} каналів) для вашого плану")
 

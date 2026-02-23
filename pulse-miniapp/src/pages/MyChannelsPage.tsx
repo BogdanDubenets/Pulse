@@ -282,6 +282,9 @@ export const MyChannelsPage: React.FC = () => {
     const handleAddClick = () => {
         if (userStatus && !userStatus.can_add) {
             setIsPaywallOpen(true);
+        } else if (userStatus && userStatus.tier === 'demo') {
+            // Для демо просто переправляємо в каталог
+            navigate('/catalog');
         } else {
             setIsAddModalOpen(true);
         }
@@ -625,9 +628,29 @@ export const MyChannelsPage: React.FC = () => {
                                     ) : (
                                         <>
                                             <Plus className="w-6 h-6" />
-                                            <span>Додати до Pulse</span>
+                                            <span>Додати за посиланням</span>
                                         </>
                                     )}
+                                </button>
+
+                                <div className="relative">
+                                    <div className="absolute inset-0 flex items-center">
+                                        <div className="w-full border-t border-border"></div>
+                                    </div>
+                                    <div className="relative flex justify-center text-xs uppercase">
+                                        <span className="bg-surface px-2 text-text-muted">або</span>
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={() => {
+                                        setIsAddModalOpen(false);
+                                        navigate('/catalog');
+                                    }}
+                                    className="w-full py-4 bg-surface-secondary border border-border text-text-primary rounded-2xl font-bold flex items-center justify-center space-x-3 hover:bg-surface transition-colors"
+                                >
+                                    <LayoutGrid className="w-5 h-5" />
+                                    <span>Вибрати з каталогу</span>
                                 </button>
 
                                 <p className="text-center text-xs text-text-muted px-4">
