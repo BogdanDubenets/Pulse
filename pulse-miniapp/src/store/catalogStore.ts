@@ -25,6 +25,7 @@ interface CatalogState {
     placeBid: (userId: number, channelId: number, category: string, amount: number) => Promise<boolean>;
     subscribeToChannel: (userId: number, channelId: number) => Promise<{ success: boolean; errorCode?: number }>;
     unsubscribeFromChannel: (userId: number, channelId: number) => Promise<boolean>;
+    reorderChannels: (userId: number, channelIds: number[]) => Promise<{ success: boolean; message?: string }>;
 }
 
 export const useCatalogStore = create<CatalogState>((set, get) => ({
@@ -155,6 +156,24 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
         } catch (error) {
             console.error('Failed to unsubscribe:', error);
             return false;
+        }
+    },
+
+    reorderChannels: async (userId: number, channelIds: number[]) => {
+        // Локально оновлюємо порядок для миттєвого відгуку
+        const currentChannels = get().channels;
+        const newOrder = channelIds.map(id => currentChannels.find(ch => ch.id === id)).filter(Boolean) as ChannelCatalogItem[];
+        set({ channels: newOrder });
+
+        try {
+            await apiClient.post('/catalog/reorder', { user_id: userId, channel_ids: channelIds });
+            return { success: true };
+        } catch (error: any) {
+            console.error('Failed to reorder channels:', error);
+            const message = error.response?.data?.detail || 'Помилка зміни порядку';
+            // Відкочуємо назад при помилці
+            await get().fetchMyChannels(userId);
+            return { success: false, message };
         }
     }
 }));

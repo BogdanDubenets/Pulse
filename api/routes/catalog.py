@@ -133,7 +133,7 @@ async def get_my_channels(user_id: int, db: AsyncSession = Depends(get_db)):
         select(Channel, UserSubscription.last_changed_at)
         .join(UserSubscription, Channel.id == UserSubscription.channel_id)
         .where(UserSubscription.user_id == user_id, Channel.is_active == True)
-        .order_by(UserSubscription.created_at.asc())
+        .order_by(UserSubscription.position.asc(), UserSubscription.created_at.asc())
     )
     result = await db.execute(stmt)
     rows = result.all()
@@ -173,6 +173,10 @@ class SubscribeRequest(BaseModel):
     user_id: int
     channel_id: int
 
+class ReorderRequest(BaseModel):
+    user_id: int
+    channel_ids: List[int] # Список ID каналів у новому порядку
+
 @router.post("/subscribe")
 async def subscribe(req: SubscribeRequest, db: AsyncSession = Depends(get_db)):
     """Підписати користувача на канал"""
@@ -200,6 +204,50 @@ async def subscribe(req: SubscribeRequest, db: AsyncSession = Depends(get_db)):
     db.add(new_sub)
     await db.commit()
     return {"status": "ok", "message": "Успішно підписано"}
+
+@router.post("/reorder")
+async def reorder_channels(req: ReorderRequest, db: AsyncSession = Depends(get_db)):
+    """
+    Змінити порядок слотів користувача (Drag-and-Drop).
+    Обмеження: не частіше ніж раз на 24г.
+    """
+    from database.models import UserSubscription
+    from datetime import timezone
+    
+    # 1. Перевірка cooldown
+    stmt = select(UserSubscription).where(UserSubscription.user_id == req.user_id)
+    res = await db.execute(stmt)
+    all_subs = res.scalars().all()
+    
+    if not all_subs:
+        return {"status": "ok"}
+    
+    # Перевіряємо самий свіжий last_changed_at серед всіх підписок
+    last_change = max(s.last_changed_at for s in all_subs)
+    lc_utc = last_change.replace(tzinfo=timezone.utc) if not last_change.tzinfo else last_change
+    now = datetime.now(timezone.utc)
+    cooldown_end = lc_utc + timedelta(hours=24)
+    
+    if now < cooldown_end:
+        remaining = cooldown_end - now
+        hours, remainder = divmod(int(remaining.total_seconds()), 3600)
+        minutes, _ = divmod(remainder, 60)
+        time_str = f"{hours}г {minutes}хв" if hours > 0 else f"{minutes}хв"
+        raise HTTPException(
+            status_code=403, 
+            detail=f"Змінювати порядок слотів можна раз на 24г. Залишилось: {time_str}"
+        )
+    
+    # 2. Оновлення позицій
+    id_to_sub = {s.channel_id: s for s in all_subs}
+    for idx, ch_id in enumerate(req.channel_ids):
+        if ch_id in id_to_sub:
+            sub = id_to_sub[ch_id]
+            sub.position = idx
+            sub.last_changed_at = now
+            
+    await db.commit()
+    return {"status": "ok"}
 
 @router.post("/unsubscribe")
 async def unsubscribe(req: SubscribeRequest, db: AsyncSession = Depends(get_db)):

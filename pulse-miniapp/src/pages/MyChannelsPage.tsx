@@ -22,7 +22,8 @@ import {
     LayoutGrid,
     Bookmark,
     UserCog,
-    Clock
+    Clock,
+    GripVertical
 } from 'lucide-react';
 
 const PLANS = [
@@ -67,6 +68,7 @@ export const MyChannelsPage: React.FC = () => {
         fetchUserStatus,
         addCustomChannel,
         unsubscribeFromChannel,
+        reorderChannels,
         createInvoice
     } = useCatalogStore();
 
@@ -202,24 +204,6 @@ export const MyChannelsPage: React.FC = () => {
                     </div>
                 </header>
 
-                {/* Overlimit Warning Banner */}
-                {userStatus && userStatus.sub_count > userStatus.limit && (
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="mx-4 mb-4 p-3 bg-error text-white rounded-xl text-[11px] font-bold flex items-center gap-2 shadow-lg shadow-error/20"
-                    >
-                        <AlertCircle size={14} className="flex-shrink-0" />
-                        <span className="flex-1 opacity-90">Ми змушені призупинити новини з зайвих каналів. Оновіть план або видаліть слоти!</span>
-                        <button
-                            onClick={() => navigate('/cabinet')}
-                            className="flex-shrink-0 bg-white/20 hover:bg-white/30 px-2 py-1.5 rounded-lg transition-colors border border-white/20"
-                        >
-                            Доплатити
-                        </button>
-                    </motion.div>
-                )}
-
                 {/* Status Bar */}
                 {userStatus && (
                     <motion.div
@@ -257,147 +241,171 @@ export const MyChannelsPage: React.FC = () => {
                 )}
 
                 {/* Channels List */}
-                <div className="space-y-3">
-                    {channels.length === 0 && !isLoading && (
-                        <div className="py-12 text-center space-y-4">
-                            <div className="w-16 h-16 bg-surface border border-dashed border-border rounded-full flex items-center justify-center mx-auto text-text-muted">
-                                <Pin className="w-8 h-8 opacity-20" />
+                <div className="px-1">
+                    <Reorder.Group
+                        axis="y"
+                        values={channels}
+                        onReorder={async (newOrder) => {
+                            if (!userId) return;
+                            const channelIds = newOrder.map(ch => ch.id);
+                            const result = await reorderChannels(userId, channelIds);
+                            if (!result.success && result.message) {
+                                (window as any).Telegram?.WebApp?.showPopup?.({
+                                    title: 'Обмеження',
+                                    message: result.message,
+                                    buttons: [{ type: 'ok', text: 'Зрозуміло' }]
+                                });
+                            }
+                        }}
+                        className="space-y-3"
+                    >
+                        {channels.length === 0 && !isLoading && (
+                            <div className="py-12 text-center space-y-4">
+                                <div className="w-16 h-16 bg-surface border border-dashed border-border rounded-full flex items-center justify-center mx-auto text-text-muted">
+                                    <Pin className="w-8 h-8 opacity-20" />
+                                </div>
+                                <p className="text-text-secondary">Тут будуть ваші підписки.</p>
+                                <button
+                                    onClick={() => navigate('/catalog')}
+                                    className="text-primary font-semibold"
+                                >
+                                    Перейти до каталогу
+                                </button>
                             </div>
-                            <p className="text-text-secondary">Тут будуть ваші підписки.</p>
-                            <button
-                                onClick={() => navigate('/catalog')}
-                                className="text-primary font-semibold"
-                            >
-                                Перейти до каталогу
-                            </button>
-                        </div>
-                    )}
+                        )}
 
-                    {channels.map((ch, index) => {
-                        const isFrozen = ch.is_limit_active === false;
-                        return (
-                            <motion.div
-                                key={ch.id}
-                                initial={{ x: -20, opacity: 0 }}
-                                animate={{ x: 0, opacity: 1 }}
-                                transition={{ delay: index * 0.05 }}
-                                className={`relative p-4 bg-surface border rounded-2xl flex items-center justify-between transition-all ${isFrozen
-                                    ? 'grayscale-[0.6] opacity-60 border-dashed border-error/30 scale-[0.98]'
-                                    : (ch.partner_status === 'premium' ? 'border-primary shadow-lg shadow-primary/5' : 'border-border')
-                                    }`}
-                            >
-                                {isFrozen && (
-                                    <div className="absolute top-2 left-2 bg-error text-white text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md transform -rotate-12 z-10 border border-white/20 shadow-sm animate-pulse">
-                                        Frozen
-                                    </div>
-                                )}
-                                <div className="flex items-center space-x-4 flex-1 min-w-0">
-                                    <div className="relative">
-                                        <div className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-border to-surface flex items-center justify-center text-xl font-bold border border-border">
-                                            {ch.avatar_url && !imgErrors[ch.id] ? (
-                                                <motion.img
-                                                    initial={{ opacity: 0 }}
-                                                    animate={{ opacity: 1 }}
-                                                    transition={{ duration: 0.3 }}
-                                                    src={`${API_ORIGIN}${ch.avatar_url}`}
-                                                    alt={ch.title}
-                                                    className="w-full h-full object-cover"
-                                                    loading="lazy"
-                                                    onError={() => {
-                                                        setImgErrors(prev => ({ ...prev, [ch.id]: true }));
-                                                    }}
-                                                />
-                                            ) : (
-                                                ch.title.charAt(0)
-                                            )}
+                        {channels.map((ch, index) => {
+                            const isActiveSlot = userStatus ? index < userStatus.limit : true;
+                            const canUnsubscribeAt = ch.can_unsubscribe_at ? new Date(ch.can_unsubscribe_at) : null;
+                            const isLocked = canUnsubscribeAt ? canUnsubscribeAt > new Date() : false;
+
+                            return (
+                                <Reorder.Item
+                                    key={ch.id}
+                                    value={ch}
+                                    className={`relative group bg-surface border-2 rounded-2xl p-4 transition-all ${isActiveSlot
+                                        ? 'border-success/30 shadow-success/5 active:scale-[0.99]'
+                                        : 'border-error/30 opacity-70 scale-[0.98]'
+                                        }`}
+                                >
+                                    <div className="flex items-center space-x-3">
+                                        <div className="flex-shrink-0 cursor-grab active:cursor-grabbing p-1 -ml-1 text-text-muted opacity-40 group-hover:opacity-100 transition-opacity">
+                                            <GripVertical size={20} />
                                         </div>
-                                        {ch.partner_status === 'premium' && (
-                                            <div className="absolute -top-1 -right-1 bg-primary p-1 rounded-full border-2 border-surface">
-                                                <Zap className="w-3 h-3 text-white fill-current" />
+
+                                        <div className="flex-1 min-w-0 flex items-center space-x-3">
+                                            <div className="relative flex-shrink-0">
+                                                <div className="w-12 h-12 rounded-xl bg-surface-secondary border border-border flex items-center justify-center overflow-hidden font-bold text-lg text-primary">
+                                                    {!imgErrors[ch.id] && ch.avatar_url ? (
+                                                        <motion.img
+                                                            initial={{ opacity: 0 }}
+                                                            animate={{ opacity: 1 }}
+                                                            transition={{ duration: 0.3 }}
+                                                            src={`${API_ORIGIN}${ch.avatar_url}`}
+                                                            alt={ch.title}
+                                                            className="w-full h-full object-cover"
+                                                            loading="lazy"
+                                                            onError={() => {
+                                                                setImgErrors(prev => ({ ...prev, [ch.id]: true }));
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        ch.title.charAt(0)
+                                                    )}
+                                                </div>
+                                                {ch.partner_status === 'premium' && (
+                                                    <div className="absolute -top-1 -right-1 bg-primary p-1 rounded-full border-2 border-surface">
+                                                        <Zap className="w-3 h-3 text-white fill-current" />
+                                                    </div>
+                                                )}
                                             </div>
-                                        )}
-                                    </div>
-                                    <div className="space-y-1">
-                                        <div className="flex items-center space-x-2">
-                                            <h3 className="font-bold leading-tight truncate">{ch.title}</h3>
-                                            {ch.partner_status === 'pinned' && <Pin className="w-3 h-3 text-secondary" />}
+                                            <div className="space-y-1 flex-1 min-w-0">
+                                                <div className="flex items-center space-x-2">
+                                                    <h3 className="font-bold leading-tight truncate">{ch.title}</h3>
+                                                    {ch.partner_status === 'pinned' && <Pin className="w-3 h-3 text-secondary" />}
+                                                    {!isActiveSlot && (
+                                                        <span className="flex-shrink-0 bg-error/10 text-error text-[9px] px-1.5 py-0.5 rounded-full font-bold border border-error/20">
+                                                            Inactive
+                                                        </span>
+                                                    )}
+                                                    {isActiveSlot && (
+                                                        <span className="flex-shrink-0 bg-success/10 text-success text-[9px] px-1.5 py-0.5 rounded-full font-bold border border-success/20">
+                                                            Active
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center space-x-3 text-xs text-text-muted">
+                                                    <span className="flex items-center space-x-1">
+                                                        <BarChart3 className="w-3 h-3" />
+                                                        <span>{ch.posts_count_24h} постів/24г</span>
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div className="flex items-center space-x-3 text-xs text-text-muted">
-                                            <span className="flex items-center space-x-1">
-                                                <BarChart3 className="w-3 h-3" />
-                                                <span>{ch.posts_count_24h} постів/24г</span>
-                                            </span>
-                                            <span className="bg-surface-secondary px-2 py-0.5 rounded text-[10px] uppercase font-bold text-text-muted border border-border">
-                                                {ch.category || 'Без категорії'}
-                                            </span>
+
+                                        <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
+                                            <a
+                                                href={ch.username ? `https://t.me/${ch.username}` : '#'}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="p-2 bg-surface/50 border border-border rounded-xl hover:bg-border transition-colors outline-none"
+                                            >
+                                                <ExternalLink className="w-5 h-5 text-text-muted" />
+                                            </a>
+
+                                            <button
+                                                onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    if (isLocked) {
+                                                        const remainingMs = canUnsubscribeAt!.getTime() - new Date().getTime();
+                                                        const hours = Math.floor(remainingMs / 3600000);
+                                                        const minutes = Math.floor((remainingMs % 3600000) / 60000);
+                                                        const timeStr = hours > 0 ? `${hours}г ${minutes}хв` : `${minutes}хв`;
+
+                                                        const webApp = (window as any).Telegram?.WebApp;
+                                                        const msg = `Цей слот заморожено на 24г для запобігання зловживанням. Ви зможете змінити його через ${timeStr}.`;
+
+                                                        if (webApp?.showPopup) {
+                                                            webApp.showPopup({
+                                                                title: 'Слот заморожено',
+                                                                message: msg,
+                                                                buttons: [{ type: 'ok', text: 'Зрозуміло' }]
+                                                            });
+                                                        } else {
+                                                            alert(msg);
+                                                        }
+                                                        return;
+                                                    }
+
+                                                    if (window.confirm(`Відписатися від ${ch.title}?`)) {
+                                                        setSubmittingIds(prev => ({ ...prev, [ch.id]: true }));
+                                                        await unsubscribeFromChannel(userId, ch.id);
+                                                        setSubmittingIds(prev => ({ ...prev, [ch.id]: false }));
+                                                        fetchMyChannels(userId);
+                                                    }
+                                                }}
+                                                disabled={submittingIds[ch.id]}
+                                                className={`p-2 border rounded-xl transition-colors ${isLocked
+                                                    ? 'bg-surface border-border text-text-muted opacity-50'
+                                                    : 'bg-error/10 text-error border-error/20 hover:bg-error/20'
+                                                    }`}
+                                            >
+                                                {submittingIds[ch.id] ? (
+                                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                                ) : (
+                                                    isLocked ? (
+                                                        <Clock className="w-5 h-5" />
+                                                    ) : (
+                                                        <Trash2 className="w-5 h-5" />
+                                                    )
+                                                )}
+                                            </button>
                                         </div>
                                     </div>
-                                </div>
-
-                                <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
-                                    <a
-                                        href={ch.username ? `https://t.me/${ch.username}` : '#'}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="p-2 bg-surface/50 border border-border rounded-xl hover:bg-border transition-colors outline-none"
-                                    >
-                                        <ExternalLink className="w-5 h-5 text-text-muted" />
-                                    </a>
-
-                                    <button
-                                        onClick={async (e) => {
-                                            e.stopPropagation();
-                                            const canUnsubscribeAt = ch.can_unsubscribe_at ? new Date(ch.can_unsubscribe_at) : null;
-                                            const isLocked = canUnsubscribeAt ? canUnsubscribeAt > new Date() : false;
-
-                                            if (isLocked) {
-                                                const remainingMs = canUnsubscribeAt!.getTime() - new Date().getTime();
-                                                const hours = Math.floor(remainingMs / 3600000);
-                                                const minutes = Math.floor((remainingMs % 3600000) / 60000);
-                                                const timeStr = hours > 0 ? `${hours}г ${minutes}хв` : `${minutes}хв`;
-
-                                                const webApp = (window as any).Telegram?.WebApp;
-                                                const msg = `Цей слот заморожено на 24г для запобігання зловживанням. Ви зможете змінити його через ${timeStr}.`;
-
-                                                if (webApp?.showPopup) {
-                                                    webApp.showPopup({
-                                                        title: 'Слот заморожено',
-                                                        message: msg,
-                                                        buttons: [{ type: 'ok', text: 'Зрозуміло' }]
-                                                    });
-                                                } else {
-                                                    alert(msg);
-                                                }
-                                                return;
-                                            }
-
-                                            if (window.confirm(`Відписатися від ${ch.title}?`)) {
-                                                setSubmittingIds(prev => ({ ...prev, [ch.id]: true }));
-                                                await unsubscribeFromChannel(userId, ch.id);
-                                                setSubmittingIds(prev => ({ ...prev, [ch.id]: false }));
-                                                fetchMyChannels(userId);
-                                            }
-                                        }}
-                                        disabled={submittingIds[ch.id]}
-                                        className={`p-2 border rounded-xl transition-colors ${(ch.can_unsubscribe_at && new Date(ch.can_unsubscribe_at) > new Date())
-                                                ? 'bg-surface border-border text-text-muted opacity-50'
-                                                : 'bg-error/10 text-error border-error/20 hover:bg-error/20'
-                                            }`}
-                                    >
-                                        {submittingIds[ch.id] ? (
-                                            <Loader2 className="w-5 h-5 animate-spin" />
-                                        ) : (
-                                            (ch.can_unsubscribe_at && new Date(ch.can_unsubscribe_at) > new Date()) ? (
-                                                <Clock className="w-5 h-5" />
-                                            ) : (
-                                                <Trash2 className="w-5 h-5" />
-                                            )
-                                        )}
-                                    </button>
-                                </div>
-                            </motion.div>
-                        );
-                    })}
+                                </Reorder.Item>
+                            );
+                        })}
+                    </Reorder.Group>
                 </div>
 
                 {error && (

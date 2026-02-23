@@ -87,6 +87,7 @@ class UserSubscription(Base):
     user_id: Mapped[int] = mapped_column(BigInteger, nullable=False) # Telegram User ID. Can be ForeignKey("users.id") but keeping loose for now to recognize existing data seamlessly
     # user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE")) 
     channel_id: Mapped[Optional[int]] = mapped_column(ForeignKey("channels.id", ondelete="CASCADE"))
+    position: Mapped[int] = mapped_column(Integer, default=0)
     last_changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
