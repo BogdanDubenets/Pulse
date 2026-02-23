@@ -13,7 +13,10 @@ import {
     Loader2,
     Trophy,
     Plus,
-    Check
+    Check,
+    LayoutGrid,
+    Bookmark,
+    UserCog
 } from 'lucide-react';
 
 export const CategoryPage: React.FC = () => {
@@ -43,16 +46,54 @@ export const CategoryPage: React.FC = () => {
     return (
         <Layout>
             <div className="p-4 pb-24 space-y-6">
-                {/* Back Button & Title */}
-                <div className="flex items-center space-x-4">
-                    <button
-                        onClick={() => navigate('/catalog')}
-                        className="p-2 hover:bg-surface rounded-full transition-colors"
-                    >
-                        <ArrowLeft className="w-6 h-6" />
-                    </button>
-                    <h1 className="text-2xl font-bold">{category}</h1>
-                </div>
+                {/* Header Section */}
+                <header className="mb-6 mt-2 px-1">
+                    <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                            <motion.h1
+                                initial={{ x: -20, opacity: 0 }}
+                                animate={{ x: 0, opacity: 1 }}
+                                className="text-3xl font-black text-text-primary flex items-center gap-2"
+                            >
+                                <img src="/pulse-logo.svg" alt="Pulse" className="w-9 h-9" />
+                                {category}
+                            </motion.h1>
+                            <div className="flex items-center space-x-2 pl-11">
+                                <button
+                                    onClick={() => navigate('/catalog')}
+                                    className="p-1 hover:bg-surface rounded-full transition-colors text-text-muted"
+                                >
+                                    <ArrowLeft size={16} />
+                                </button>
+                                <p className="text-sm text-text-secondary font-medium">Канали категорії</p>
+                            </div>
+                        </div>
+
+                        <div className="flex p-1 bg-surface/40 backdrop-blur-md rounded-xl border border-border/50 shadow-sm">
+                            <button
+                                onClick={() => navigate('/catalog')}
+                                className="p-2 rounded-lg transition-all text-text-secondary hover:text-text-primary"
+                                title="Каталог"
+                            >
+                                <LayoutGrid size={18} />
+                            </button>
+                            <button
+                                onClick={() => navigate('/catalog/my')}
+                                className="p-2 rounded-lg transition-all text-text-secondary hover:text-text-primary"
+                                title="Мої канали"
+                            >
+                                <Bookmark size={18} />
+                            </button>
+                            <button
+                                onClick={() => navigate('/cabinet')}
+                                className="p-2 rounded-lg transition-all text-text-secondary hover:text-text-primary"
+                                title="Кабінет"
+                            >
+                                <UserCog size={18} />
+                            </button>
+                        </div>
+                    </div>
+                </header>
 
                 {/* Auction Banner */}
                 <motion.div

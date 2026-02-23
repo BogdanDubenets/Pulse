@@ -117,14 +117,14 @@ export const CatalogPage: React.FC = () => {
                                 <LayoutGrid size={18} />
                             </button>
                             <button
-                                onClick={() => navigate('/my-channels')}
+                                onClick={() => navigate('/catalog/my')}
                                 className="p-2 rounded-lg transition-all text-text-secondary hover:text-text-primary"
                                 title="Мої канали"
                             >
                                 <Bookmark size={18} />
                             </button>
                             <button
-                                onClick={() => navigate('/admin')}
+                                onClick={() => navigate('/cabinet')}
                                 className="p-2 rounded-lg transition-all text-text-secondary hover:text-text-primary"
                                 title="Для адміністрування"
                             >

@@ -18,7 +18,10 @@ import {
     AlertCircle,
     Star,
     Crown,
-    Trash2
+    Trash2,
+    LayoutGrid,
+    Bookmark,
+    UserCog
 } from 'lucide-react';
 
 const PLANS = [
@@ -139,25 +142,64 @@ export const MyChannelsPage: React.FC = () => {
     return (
         <Layout>
             <div className="pb-24 space-y-6">
-                {/* Back Button & Title */}
-                <div className="flex items-center justify-between px-2">
-                    <div className="flex items-center space-x-4">
-                        <button
-                            onClick={() => navigate('/catalog')}
-                            className="p-2 hover:bg-surface rounded-full transition-colors"
-                        >
-                            <ArrowLeft className="w-6 h-6" />
-                        </button>
-                        <h1 className="text-2xl font-bold">Мої канали</h1>
-                    </div>
+                {/* Header Section */}
+                <header className="mb-6 mt-2 px-1">
+                    <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                            <motion.h1
+                                initial={{ x: -20, opacity: 0 }}
+                                animate={{ x: 0, opacity: 1 }}
+                                className="text-3xl font-black text-text-primary flex items-center gap-2"
+                            >
+                                <img src="/pulse-logo.svg" alt="Pulse" className="w-9 h-9" />
+                                Мої канали
+                            </motion.h1>
+                            <div className="flex items-center space-x-2 pl-11">
+                                <button
+                                    onClick={() => navigate('/catalog')}
+                                    className="p-1 hover:bg-surface rounded-full transition-colors text-text-muted"
+                                >
+                                    <ArrowLeft size={16} />
+                                </button>
+                                <p className="text-sm text-text-secondary font-medium">Керування вашими підписками</p>
+                            </div>
+                        </div>
 
-                    <button
-                        onClick={handleAddClick}
-                        className="p-3 bg-primary text-white rounded-2xl shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
-                    >
-                        <Plus className="w-6 h-6" />
-                    </button>
-                </div>
+                        <div className="flex items-center space-x-3">
+                            <button
+                                onClick={handleAddClick}
+                                className="p-2.5 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 active:scale-90 transition-all"
+                                title="Додати канал"
+                            >
+                                <Plus className="w-5 h-5" />
+                            </button>
+
+                            <div className="flex p-1 bg-surface/40 backdrop-blur-md rounded-xl border border-border/50 shadow-sm">
+                                <button
+                                    onClick={() => navigate('/catalog')}
+                                    className="p-2 rounded-lg transition-all text-text-secondary hover:text-text-primary"
+                                    title="Каталог"
+                                >
+                                    <LayoutGrid size={18} />
+                                </button>
+                                <button
+                                    onClick={() => navigate('/catalog/my')}
+                                    className="p-2 rounded-lg transition-all bg-primary text-text-primary shadow-lg shadow-primary/20"
+                                    title="Мої канали"
+                                >
+                                    <Bookmark size={18} />
+                                </button>
+                                <button
+                                    onClick={() => navigate('/cabinet')}
+                                    className="p-2 rounded-lg transition-all text-text-secondary hover:text-text-primary"
+                                    title="Кабінет"
+                                >
+                                    <UserCog size={18} />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </header>
 
                 {/* Status Bar */}
                 {userStatus && (
