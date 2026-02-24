@@ -568,11 +568,26 @@ async def add_custom_channel(req: CustomChannelRequest, db: AsyncSession = Depen
 # telegram_id -> {"path": str, "expiry": datetime}
 photo_path_cache = {}
 
+@router.get("/debug-photos")
+async def debug_photos():
+    from api.utils.storage import AVATAR_DIR
+    import os
+    if not os.path.exists(AVATAR_DIR):
+        return {"error": "AVATAR_DIR does not exist", "path": AVATAR_DIR, "cwd": os.getcwd()}
+    files = os.listdir(AVATAR_DIR)
+    return {
+        "count": len(files),
+        "path": AVATAR_DIR,
+        "files_sample": files[:10],
+        "cwd": os.getcwd()
+    }
+
 @router.get("/photo/{telegram_id}")
 async def get_channel_photo(telegram_id: int, username: Optional[str] = None):
     """Отримати фото каналу: спочатку з диска, якщо немає - завантажити з Telegram"""
     from api.utils.storage import get_or_download_avatar
-    from fastapi.responses import FileResponse
+    from fastapi.responses import FileResponse, StreamingResponse
+    import io
     
     file_path = await get_or_download_avatar(telegram_id, username=username)
     
@@ -580,4 +595,4 @@ async def get_channel_photo(telegram_id: int, username: Optional[str] = None):
         return FileResponse(file_path, media_type="image/jpeg")
         
     # Fallback на прозору заглушку або 404
-    return StreamingResponse(io.BytesIO(), media_type="image/png")
+    return StreamingResponse(io.BytesIO(b""), media_type="image/png")
