@@ -150,9 +150,9 @@ async def get_channels(
         user_subs = set(sub_res.scalars().all())
 
     channels = []
-    for ch in combined_channels:
-        # Використовуємо прямий шлях до статики
-        avatar = ch.avatar_url or f"/static/avatars/{ch.telegram_id}.jpg"
+        # Пріоритетно використовуємо системний шлях через проксі
+        username_query = f"?username={ch.username}" if ch.username else ""
+        avatar = f"/api/v1/catalog/photo/{ch.telegram_id}{username_query}"
         
         # Визначаємо статус для фронтенда (з урахуванням протухання)
         effective_status = ch.partner_status
@@ -201,8 +201,9 @@ async def get_my_channels(user_id: int, db: AsyncSession = Depends(get_db)):
     
     channels = []
     for idx, (ch, last_changed) in enumerate(rows):
-        # Використовуємо прямий шлях до статики
-        avatar = ch.avatar_url or f"/static/avatars/{ch.telegram_id}.jpg"
+        # Пріоритетно використовуємо системний шлях через проксі
+        username_query = f"?username={ch.username}" if ch.username else ""
+        avatar = f"/api/v1/catalog/photo/{ch.telegram_id}{username_query}"
         is_active_for_limit = idx < user_limit
         
         # Вираховуємо час розморозки
@@ -544,8 +545,9 @@ async def add_custom_channel(req: CustomChannelRequest, db: AsyncSession = Depen
     
     # 6. Fetch Avatar if needed
     try:
-        # Завжди оновлюємо на прямий статичний шлях
-        channel.avatar_url = f"/static/avatars/{channel.telegram_id}.jpg"
+        # Завжди оновлюємо на проксі-шлях для консистентності
+        username_query = f"?username={channel.username}" if channel.username else ""
+        channel.avatar_url = f"/api/v1/catalog/photo/{channel.telegram_id}{username_query}"
     except Exception:
         pass
 
@@ -566,22 +568,16 @@ async def add_custom_channel(req: CustomChannelRequest, db: AsyncSession = Depen
 async def get_channel_photo(telegram_id: int, username: Optional[str] = None):
     """Отримати фото каналу: спочатку з диска, якщо немає - завантажити з Telegram"""
     from api.utils.storage import get_or_download_avatar
+    from fastapi.responses import FileResponse
     
     try:
         file_path = await get_or_download_avatar(telegram_id, username=username)
-        logger.info(f"Photo request for {telegram_id} (username: {username}). Path: {file_path}")
         
         if file_path and os.path.exists(file_path):
-            # Використовуємо StreamingResponse з відкритим файлом як альтернативу FileResponse
-            def iterfile():
-                with open(file_path, mode="rb") as file_like:
-                    yield from file_like
-            return StreamingResponse(iterfile(), media_type="image/jpeg")
+            return FileResponse(file_path, media_type="image/jpeg")
             
         logger.warning(f"Avatar file not found for {telegram_id} at {file_path}")
     except Exception as e:
         logger.error(f"Failed to serve avatar for {telegram_id}: {str(e)}")
-        # Повертаємо текст помилки для дебагу, якщо це 500
-        return StreamingResponse(io.BytesIO(f"Error: {str(e)}".encode()), media_type="text/plain", status_code=500)
         
     return StreamingResponse(io.BytesIO(b""), media_type="image/png")
