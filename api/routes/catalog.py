@@ -7,9 +7,10 @@ from pydantic import BaseModel, HttpUrl
 from typing import List, Optional
 from datetime import datetime, timedelta, timezone
 import httpx
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from config.settings import config
 import io
+import os
 import logging
 
 logger = logging.getLogger(__name__)
@@ -565,34 +566,20 @@ async def add_custom_channel(req: CustomChannelRequest, db: AsyncSession = Depen
     return {"status": "ok", "message": "Канал успішно додано до ваших підписок"}
 
 # Simple in-memory cache for file paths to reduce Telegram API calls
-# telegram_id -> {"path": str, "expiry": datetime}
-photo_path_cache = {}
-
-@router.get("/debug-photos")
-async def debug_photos():
-    from api.utils.storage import AVATAR_DIR
-    import os
-    if not os.path.exists(AVATAR_DIR):
-        return {"error": "AVATAR_DIR does not exist", "path": AVATAR_DIR, "cwd": os.getcwd()}
-    files = os.listdir(AVATAR_DIR)
-    return {
-        "count": len(files),
-        "path": AVATAR_DIR,
-        "files_sample": files[:10],
-        "cwd": os.getcwd()
-    }
-
 @router.get("/photo/{telegram_id}")
 async def get_channel_photo(telegram_id: int, username: Optional[str] = None):
     """Отримати фото каналу: спочатку з диска, якщо немає - завантажити з Telegram"""
     from api.utils.storage import get_or_download_avatar
-    from fastapi.responses import FileResponse, StreamingResponse
-    import io
     
-    file_path = await get_or_download_avatar(telegram_id, username=username)
-    
-    if file_path and os.path.exists(file_path):
-        return FileResponse(file_path, media_type="image/jpeg")
+    try:
+        file_path = await get_or_download_avatar(telegram_id, username=username)
         
-    # Fallback на прозору заглушку або 404
+        if file_path and os.path.exists(file_path):
+            return FileResponse(file_path, media_type="image/jpeg")
+            
+        logger.warning(f"Avatar file not found for {telegram_id} at {file_path}")
+    except Exception as e:
+        logger.error(f"Failed to serve avatar for {telegram_id}: {e}")
+        
+    # Повертаємо прозорий піксель або пустий стрім, щоб не було 500
     return StreamingResponse(io.BytesIO(b""), media_type="image/png")
