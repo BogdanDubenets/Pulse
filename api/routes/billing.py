@@ -31,7 +31,7 @@ class InvoiceResponse(BaseModel):
 
 # Ціни в Telegram Stars
 TIER_PRICES = {
-    "basic": 50,
+    "basic": 60,
     "standard": 90,
     "premium": 120
 }
@@ -47,9 +47,33 @@ async def create_invoice(req: InvoiceRequest, db: AsyncSession = Depends(get_db)
     payload = ""
 
     if req.tier in TIER_PRICES:
-        price = TIER_PRICES[req.tier]
-        title = f"Pulse {req.tier.capitalize()} Subscription"
-        description = f"Щомісячна підписка на Pulse ({req.tier} рівень)"
+        target_price = TIER_PRICES[req.tier]
+        
+        # Перевіряємо поточну підписку для Upgrade
+        user_res = await db.execute(select(User).where(User.id == req.user_id))
+        user = user_res.scalar_one_or_none()
+        
+        discount = 0
+        if user and user.subscription_tier in TIER_PRICES and user.subscription_expires_at:
+            # Тільки якщо новий рівень вищий за поточний (або такий самий для продовження)
+            # Для простоти: якщо є активна підписка, рахуємо залишок
+            now = datetime.now(timezone.utc)
+            if user.subscription_expires_at.replace(tzinfo=timezone.utc) > now:
+                remaining_time = user.subscription_expires_at.replace(tzinfo=timezone.utc) - now
+                remaining_days = remaining_time.days + (remaining_time.seconds / 86400)
+                
+                # Денна вартість поточного плану
+                current_daily_price = TIER_PRICES[user.subscription_tier] / 30
+                discount = int(remaining_days * current_daily_price)
+        
+        price = max(target_price - discount, 1) # Мінімум 1 зірка
+        
+        title = f"Pulse {req.tier.capitalize()} Plan"
+        if discount > 0:
+            description = f"Оновлення до {req.tier} зі знижкою {discount} Stars за залишок днів"
+        else:
+            description = f"Підписка на Pulse ({req.tier} рівень)"
+            
         payload = f"sub_{req.tier}_{req.user_id}"
     elif req.tier == "ad_premium":
         price = 1 # Тестова ціна

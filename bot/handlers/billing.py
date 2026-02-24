@@ -13,20 +13,43 @@ async def process_pre_checkout_query(pre_checkout_query: PreCheckoutQuery):
     await pre_checkout_query.answer(ok=True)
 
 @router.message(F.successful_payment)
-async def process_successful_payment(message: Message):
+async def process_successful_payment(message: types.Message):
     payload = message.successful_payment.invoice_payload
+    parts = payload.split("_")
+    
     # Payload format: sub_{tier}_{user_id}
+    # Payload format: ad_{days}_{channel_id}_{user_id}
+    # Payload format: bid_{category}_{channel_id}_{price}_{user_id}
+
     async with AsyncSessionLocal() as session:
         if parts[0] == "sub":
             tier = parts[1]
             user_id = int(parts[2])
-            expires_at = datetime.now(timezone.utc) + timedelta(days=30)
+            
+            # Отримуємо поточного юзера для перевірки залишкового терміну
+            from database.models import User
+            from sqlalchemy import select
+            user_res = await session.execute(select(User).where(User.id == user_id))
+            user = user_res.scalar_one_or_none()
+            
+            now = datetime.now(timezone.utc)
+            new_expires_at = now + timedelta(days=30)
+            
+            # Якщо це Upgrade або продовження існуючої підписки, що ще не закінчилась
+            if user and user.subscription_expires_at:
+                current_expires = user.subscription_expires_at.replace(tzinfo=timezone.utc) if not user.subscription_expires_at.tzinfo else user.subscription_expires_at
+                if current_expires > now:
+                    # Додаємо 30 днів до поточного терміну (якщо ми врахували це при ціні)
+                    # АБО просто встановлюємо 30 днів від сьогодні (якщо вже дали знижку в Stars)
+                    # Оскільки в інвойсі ми ЗМЕНШИЛИ ціну, підписка має стати 30 днів від СЬОГОДНІ
+                    new_expires_at = now + timedelta(days=30)
+            
             await session.execute(
                 update(User)
                 .where(User.id == user_id)
-                .values(subscription_tier=tier, subscription_expires_at=expires_at)
+                .values(subscription_tier=tier, subscription_expires_at=new_expires_at)
             )
-            await message.answer(f"✅ План оновлено до **{tier.capitalize()}**!")
+            await message.answer(f"✅ План оновлено до **{tier.capitalize()}**! Бажаємо приємного користування.")
             
         elif parts[0] == "ad":
             days = int(parts[1])
