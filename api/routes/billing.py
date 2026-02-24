@@ -69,17 +69,18 @@ async def create_invoice(req: InvoiceRequest, db: AsyncSession = Depends(get_db)
         current_tier = user.subscription_tier if user else "demo"
         current_level = TIER_LEVELS.get(current_tier, 0)
         
-        # 1. Заборона Downgrade
+        # 1. Заборона Downgrade (але дозволяємо Upgrade та Extension)
         if target_level < current_level:
             raise HTTPException(
                 status_code=400, 
-                detail=f"Неможливо перейти з {current_tier} на нижчий рівень {req.tier}. Тільки Upgrade."
+                detail=f"Неможливо перейти з {current_tier} на нижчий рівень {req.tier}. Тільки Upgrade або Extension."
             )
         
         discount = 0
         is_upgrade = target_level > current_level
+        is_extension = target_level == current_level
         
-        if user and current_tier in TIER_PRICES and user.subscription_expires_at:
+        if is_upgrade and user and current_tier in TIER_PRICES and user.subscription_expires_at:
             now = datetime.now(timezone.utc)
             if user.subscription_expires_at.replace(tzinfo=timezone.utc) > now:
                 remaining_time = user.subscription_expires_at.replace(tzinfo=timezone.utc) - now
@@ -131,7 +132,8 @@ async def create_invoice(req: InvoiceRequest, db: AsyncSession = Depends(get_db)
             payload=payload,
             provider_token="", 
             currency="XTR",
-            prices=prices
+            prices=prices,
+            subscription_period=2592000 # 30 днів у секундах для Recurring
         )
         return {"invoice_link": invoice_link}
     except Exception as e:

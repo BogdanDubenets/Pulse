@@ -33,16 +33,18 @@ async def process_successful_payment(message: types.Message):
             user = user_res.scalar_one_or_none()
             
             now = datetime.now(timezone.utc)
-            new_expires_at = now + timedelta(days=30)
             
-            # Якщо це Upgrade або продовження існуючої підписки, що ще не закінчилась
-            if user and user.subscription_expires_at:
+            # Якщо це продовження того ж самого плану (Extension), додаємо 30 днів до поточного терміну
+            if user and user.subscription_tier == tier and user.subscription_expires_at:
                 current_expires = user.subscription_expires_at.replace(tzinfo=timezone.utc) if not user.subscription_expires_at.tzinfo else user.subscription_expires_at
-                if current_expires > now:
-                    # Додаємо 30 днів до поточного терміну (якщо ми врахували це при ціні)
-                    # АБО просто встановлюємо 30 днів від сьогодні (якщо вже дали знижку в Stars)
-                    # Оскільки в інвойсі ми ЗМЕНШИЛИ ціну, підписка має стати 30 днів від СЬОГОДНІ
-                    new_expires_at = now + timedelta(days=30)
+                base_time = max(current_expires, now)
+                new_expires_at = base_time + timedelta(days=30)
+                msg_text = f"✅ План **{tier.capitalize()}** продовжено на 30 днів! Дякуємо за довіру."
+            else:
+                # Якщо це Upgrade (або нова підписка), встановлюємо 30 днів від сьогодні
+                # Оскільки за Upgrade ми дали знижку в Stars за НЕВИКОРИСТАНІ дні
+                new_expires_at = now + timedelta(days=30)
+                msg_text = f"✅ План оновлено до **{tier.capitalize()}**! Бажаємо приємного користування."
             
             await session.execute(
                 update(User)
