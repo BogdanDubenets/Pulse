@@ -39,6 +39,14 @@ TIER_PRICES = {
     "premium": 120
 }
 
+# Рівні планів для перевірки Up/Down Grade
+TIER_LEVELS = {
+    "demo": 0,
+    "basic": 1,
+    "standard": 2,
+    "premium": 3
+}
+
 # --- Endpoints ---
 
 @router.post("/create-invoice", response_model=InvoiceResponse)
@@ -48,34 +56,54 @@ async def create_invoice(req: InvoiceRequest, db: AsyncSession = Depends(get_db)
     title = ""
     description = ""
     payload = ""
+    prices = []
 
     if req.tier in TIER_PRICES:
         target_price = TIER_PRICES[req.tier]
+        target_level = TIER_LEVELS.get(req.tier, 0)
         
-        # Перевіряємо поточну підписку для Upgrade
+        # Перевіряємо поточну підписку
         user_res = await db.execute(select(User).where(User.id == req.user_id))
         user = user_res.scalar_one_or_none()
         
+        current_tier = user.subscription_tier if user else "demo"
+        current_level = TIER_LEVELS.get(current_tier, 0)
+        
+        # 1. Заборона Downgrade
+        if target_level < current_level:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Неможливо перейти з {current_tier} на нижчий рівень {req.tier}. Тільки Upgrade."
+            )
+        
         discount = 0
-        if user and user.subscription_tier in TIER_PRICES and user.subscription_expires_at:
-            # Тільки якщо новий рівень вищий за поточний (або такий самий для продовження)
-            # Для простоти: якщо є активна підписка, рахуємо залишок
+        is_upgrade = target_level > current_level
+        
+        if user and current_tier in TIER_PRICES and user.subscription_expires_at:
             now = datetime.now(timezone.utc)
             if user.subscription_expires_at.replace(tzinfo=timezone.utc) > now:
                 remaining_time = user.subscription_expires_at.replace(tzinfo=timezone.utc) - now
                 remaining_days = remaining_time.days + (remaining_time.seconds / 86400)
                 
                 # Денна вартість поточного плану
-                current_daily_price = TIER_PRICES[user.subscription_tier] / 30
+                current_daily_price = TIER_PRICES[current_tier] / 30
                 discount = int(remaining_days * current_daily_price)
         
         price = max(target_price - discount, 1) # Мінімум 1 зірка
         
-        title = f"Pulse {req.tier.capitalize()} Plan"
-        if discount > 0:
-            description = f"Оновлення до {req.tier} зі знижкою {discount} Stars за залишок днів"
+        if is_upgrade and discount > 0:
+            title = f"Upgrade: Pulse {req.tier.capitalize()}"
+            description = (
+                f"💎 Пакет: {req.tier.capitalize()} ({target_price} Stars)\n"
+                f"♻️ Повернення за залишок днів: -{discount} Stars\n"
+                f"✅ До оплати за оновлення: {price} Stars"
+            )
+            # Оскільки Telegram не підтримує від'ємні ціни, вказуємо фінальну суму
+            prices = [{"label": "Доплата за Upgrade", "amount": price}]
         else:
+            title = f"Pulse {req.tier.capitalize()} Plan"
             description = f"Підписка на Pulse ({req.tier} рівень)"
+            prices = [{"label": "Оплата підписки", "amount": price}]
             
         payload = f"sub_{req.tier}_{req.user_id}"
     elif req.tier == "ad_premium":
@@ -83,11 +111,13 @@ async def create_invoice(req: InvoiceRequest, db: AsyncSession = Depends(get_db)
         title = f"Premium Slot"
         description = f"Преміум-слот для каналу на {req.days} днів"
         payload = f"ad_{req.days}_{req.channel_id}_{req.user_id}"
+        prices = [{"label": "Оплата за слот", "amount": price}]
     elif req.tier == "auction_bid":
         price = req.amount or 1
         title = f"Auction Bid: {req.category}"
         description = f"Ставка за Top-1 у категорії {req.category}"
         payload = f"bid_{req.category}_{req.channel_id}_{price}_{req.user_id}"
+        prices = [{"label": "Ставка в аукціоні", "amount": price}]
     else:
         raise HTTPException(status_code=400, detail="Invalid payment type")
     
@@ -101,7 +131,7 @@ async def create_invoice(req: InvoiceRequest, db: AsyncSession = Depends(get_db)
             payload=payload,
             provider_token="", 
             currency="XTR",
-            prices=[{"label": "Оплата", "amount": price}]
+            prices=prices
         )
         return {"invoice_link": invoice_link}
     except Exception as e:
