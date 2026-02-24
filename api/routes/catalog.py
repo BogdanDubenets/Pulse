@@ -573,13 +573,19 @@ async def get_channel_photo(telegram_id: int, username: Optional[str] = None):
     
     try:
         file_path = await get_or_download_avatar(telegram_id, username=username)
+        logger.info(f"Photo request for {telegram_id} (username: {username}). Path: {file_path}")
         
         if file_path and os.path.exists(file_path):
-            return FileResponse(file_path, media_type="image/jpeg")
+            # Використовуємо StreamingResponse з відкритим файлом як альтернативу FileResponse
+            def iterfile():
+                with open(file_path, mode="rb") as file_like:
+                    yield from file_like
+            return StreamingResponse(iterfile(), media_type="image/jpeg")
             
         logger.warning(f"Avatar file not found for {telegram_id} at {file_path}")
     except Exception as e:
-        logger.error(f"Failed to serve avatar for {telegram_id}: {e}")
+        logger.error(f"Failed to serve avatar for {telegram_id}: {str(e)}")
+        # Повертаємо текст помилки для дебагу, якщо це 500
+        return StreamingResponse(io.BytesIO(f"Error: {str(e)}".encode()), media_type="text/plain", status_code=500)
         
-    # Повертаємо прозорий піксель або пустий стрім, щоб не було 500
     return StreamingResponse(io.BytesIO(b""), media_type="image/png")
