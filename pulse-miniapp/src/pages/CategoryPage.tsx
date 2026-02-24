@@ -232,7 +232,7 @@ export const CategoryPage: React.FC = () => {
                                                 initial={{ opacity: 0 }}
                                                 animate={{ opacity: 1 }}
                                                 transition={{ duration: 0.3 }}
-                                                src={`${API_ORIGIN}${ch.avatar_url}`}
+                                                src={ch.avatar_url.startsWith('http') ? ch.avatar_url : `${API_ORIGIN}${ch.avatar_url}`}
                                                 alt={ch.title}
                                                 className="w-full h-full object-cover"
                                                 loading="lazy"
