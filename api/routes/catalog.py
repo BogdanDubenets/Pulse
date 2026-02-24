@@ -565,77 +565,14 @@ photo_path_cache = {}
 
 @router.get("/photo/{telegram_id}")
 async def get_channel_photo(telegram_id: int):
-    """Проксі для отримання фото каналу через Telegram Bot API з кешуванням"""
-    try:
-        # 1. Перевірка кешу
-        now = datetime.now()
-        if telegram_id in photo_path_cache:
-            cached = photo_path_cache[telegram_id]
-            if now < cached["expiry"]:
-                file_path = cached["path"]
-                token = config.BOT_TOKEN.get_secret_value()
-                photo_url = f"https://api.telegram.org/file/bot{token}/{file_path}"
-                
-                async def stream_file():
-                    async with httpx.AsyncClient() as s_client:
-                        try:
-                            async with s_client.stream("GET", photo_url) as r:
-                                if r.status_code == 200:
-                                    async for chunk in r.aiter_bytes():
-                                        yield chunk
-                                else:
-                                    logger.warning(f"Cached photo path expired for {telegram_id}")
-                                    photo_path_cache.pop(telegram_id, None)
-                        except Exception as e:
-                            logger.error(f"Error streaming cached photo for {telegram_id}: {e}")
-                            photo_path_cache.pop(telegram_id, None)
-
-                return StreamingResponse(stream_file(), media_type="image/jpeg")
-
-        token = config.BOT_TOKEN.get_secret_value()
-        async with httpx.AsyncClient() as client:
-            # Normalize ID: Channels must start with -100
-            chat_id = telegram_id
-            if chat_id > 0 and chat_id < 10**12: # Skip huge IDs that might already be normalized or bots
-                chat_id = int(f"-100{chat_id}")
-            
-            logger.info(f"Fetching photo for telegram_id: {telegram_id}, chat_id: {chat_id}")
-                
-            chat_resp = await client.get(f"https://api.telegram.org/bot{token}/getChat?chat_id={chat_id}")
-            if chat_resp.status_code != 200:
-                logger.error(f"getChat failed for {chat_id}: {chat_resp.text}")
-                raise HTTPException(status_code=404, detail="Чат не знайдено")
-            
-            chat_info = chat_resp.json().get("result", {})
-            photo = chat_info.get("photo")
-            if not photo:
-                return StreamingResponse(io.BytesIO(), media_type="image/png") # Empty fallback
-            
-            file_id = photo.get("big_file_id") or photo.get("small_file_id")
-            
-            # 2. Get File Path
-            file_resp = await client.get(f"https://api.telegram.org/bot{token}/getFile?file_id={file_id}")
-            if file_resp.status_code != 200:
-                raise HTTPException(status_code=404, detail="Файл не знайдено")
-            
-            file_path = file_resp.json().get("result", {}).get("file_path")
-            
-            # 3. Update Cache (valid for 30 days)
-            photo_path_cache[telegram_id] = {
-                "path": file_path,
-                "expiry": now + timedelta(days=30)
-            }
-            
-            # 4. Stream from Telegram
-            photo_url = f"https://api.telegram.org/file/bot{token}/{file_path}"
-            
-            async def stream_file():
-                async with httpx.AsyncClient() as s_client:
-                    async with s_client.stream("GET", photo_url) as r:
-                        async for chunk in r.aiter_bytes():
-                            yield chunk
-
-            return StreamingResponse(stream_file(), media_type="image/jpeg")
-    except Exception as e:
-        logger.error(f"Global error in get_channel_photo for {telegram_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    """Отримати фото каналу: спочатку з диска, якщо немає - завантажити з Telegram"""
+    from api.utils.storage import get_or_download_avatar
+    from fastapi.responses import FileResponse
+    
+    file_path = await get_or_download_avatar(telegram_id)
+    
+    if file_path and os.path.exists(file_path):
+        return FileResponse(file_path, media_type="image/jpeg")
+        
+    # Fallback на прозору заглушку або 404
+    return StreamingResponse(io.BytesIO(), media_type="image/png")

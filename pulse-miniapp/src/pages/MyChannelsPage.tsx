@@ -31,7 +31,7 @@ const PLANS = [
     {
         id: 'basic',
         name: 'Basic',
-        price: 50,
+        price: 60,
         limit: 6,
         icon: <Zap className="w-5 h-5" />,
         color: 'from-blue-500 to-cyan-500',
@@ -757,12 +757,8 @@ export const MyChannelsPage: React.FC = () => {
                             <div className="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 rounded-full blur-3xl" />
                             <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-secondary/10 rounded-full blur-3xl" />
 
-                            <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center mx-auto border border-primary/20">
-                                {paywallReason === 'upsell' ? (
-                                    <Sparkles className="w-10 h-10 text-primary animate-pulse" />
-                                ) : (
-                                    <Lock className="w-10 h-10 text-primary" />
-                                )}
+                            <div className="w-20 h-20 bg-primary/5 rounded-3xl flex items-center justify-center mx-auto border border-primary/10">
+                                <img src="/pulse-logo.svg" alt="Pulse" className="w-12 h-12" />
                             </div>
 
                             <div className="space-y-2">

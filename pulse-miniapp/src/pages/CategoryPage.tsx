@@ -353,7 +353,7 @@ export const CategoryPage: React.FC = () => {
                             <div className="p-4 bg-background border border-border rounded-2xl flex items-center justify-between">
                                 <span className="text-text-secondary font-medium">Поточна ставка:</span>
                                 <span className="text-xl font-bold flex items-center text-accent">
-                                    <Zap className="w-5 h-5 mr-1 fill-current" /> 50 Stars
+                                    <Zap className="w-5 h-5 mr-1 fill-current" /> 60 Stars
                                 </span>
                             </div>
 
@@ -364,7 +364,7 @@ export const CategoryPage: React.FC = () => {
                                     setIsAuctionOpen(false);
                                 }}
                             >
-                                Підняти до 60 Stars
+                                Підняти до 70 Stars
                             </button>
                         </motion.div>
                     </motion.div>
