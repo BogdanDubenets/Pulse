@@ -6,8 +6,11 @@ from database.models import User
 from config.settings import config
 from pydantic import BaseModel
 from typing import Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from aiogram import Bot
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/billing", tags=["billing"])
 
