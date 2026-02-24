@@ -90,22 +90,39 @@ async def create_invoice(req: InvoiceRequest, db: AsyncSession = Depends(get_db)
                 current_daily_price = TIER_PRICES[current_tier] / 30
                 discount = int(remaining_days * current_daily_price)
         
-        price = max(target_price - discount, 1) # Мінімум 1 зірка
+        # Для Recurring ми завжди використовуємо ПОВНУ ціну цільового плану.
+        # А різницю (знижку) ми компенсуємо бонусними днями в бот-хендлері.
+        price = target_price
         
-        if is_upgrade and discount > 0:
+        bonus_days_msg = ""
+        if is_upgrade and user and current_tier in TIER_PRICES and user.subscription_expires_at:
+            now = datetime.now(timezone.utc)
+            if user.subscription_expires_at.replace(tzinfo=timezone.utc) > now:
+                remaining_time = user.subscription_expires_at.replace(tzinfo=timezone.utc) - now
+                remaining_days = remaining_time.days + (remaining_time.seconds / 86400)
+                
+                # Стрічку бонусних днів ми лише показуємо для інфо, сам розрахунок буде в боті
+                current_daily_price = TIER_PRICES[current_tier] / 30
+                new_daily_price = target_price / 30
+                bonus_days = int((remaining_days * current_daily_price) / new_daily_price)
+                if bonus_days > 0:
+                    bonus_days_msg = f"\n🎁 +{bonus_days} бонусних днів за перехід з {current_tier.capitalize()}"
+
+        if is_upgrade:
             title = f"Upgrade: Pulse {req.tier.capitalize()}"
             description = (
-                f"💎 Пакет: {req.tier.capitalize()} ({target_price} Stars)\n"
-                f"♻️ Повернення за залишок днів: -{discount} Stars\n"
-                f"✅ До оплати за оновлення: {price} Stars"
+                f"💎 Пакет: {req.tier.capitalize()} ({target_price} Stars)"
+                f"{bonus_days_msg}\n"
+                f"🔄 Автоподовження: кожного місяця"
             )
-            # Оскільки Telegram не підтримує від'ємні ціни, вказуємо фінальну суму
-            prices = [{"label": "Доплата за Upgrade", "amount": price}]
         else:
             title = f"Pulse {req.tier.capitalize()} Plan"
-            description = f"Підписка на Pulse ({req.tier} рівень)"
-            prices = [{"label": "Оплата підписки", "amount": price}]
+            description = (
+                f"Підписка на Pulse ({req.tier} рівень)\n"
+                f"🔄 Автоподовження: кожного місяця"
+            )
             
+        prices = [{"label": f"Pulse {req.tier.capitalize()} (30 дн.)", "amount": price}]
         payload = f"sub_{req.tier}_{req.user_id}"
     elif req.tier == "ad_premium":
         price = 1 # Тестова ціна

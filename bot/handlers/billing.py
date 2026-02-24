@@ -27,31 +27,48 @@ async def process_successful_payment(message: types.Message):
             user_id = int(parts[2])
             
             # Отримуємо поточного юзера для перевірки залишкового терміну
+            # Ціни для розрахунку бонусів (мають співпадати з API)
+            TIER_PRICES = {"basic": 60, "standard": 90, "premium": 120}
+            
             from database.models import User
             from sqlalchemy import select
             user_res = await session.execute(select(User).where(User.id == user_id))
             user = user_res.scalar_one_or_none()
             
             now = datetime.now(timezone.utc)
+            old_tier = user.subscription_tier if user else "demo"
             
-            # Якщо це продовження того ж самого плану (Extension), додаємо 30 днів до поточного терміну
-            if user and user.subscription_tier == tier and user.subscription_expires_at:
-                current_expires = user.subscription_expires_at.replace(tzinfo=timezone.utc) if not user.subscription_expires_at.tzinfo else user.subscription_expires_at
+            # Логіка визначення нового терміну
+            if tier == old_tier:
+                # 1. Подовження або Автоподовження того ж плану
+                current_expires = user.subscription_expires_at.replace(tzinfo=timezone.utc) if user.subscription_expires_at else now
                 base_time = max(current_expires, now)
                 new_expires_at = base_time + timedelta(days=30)
                 msg_text = f"✅ План **{tier.capitalize()}** продовжено на 30 днів! Дякуємо за довіру."
             else:
-                # Якщо це Upgrade (або нова підписка), встановлюємо 30 днів від сьогодні
-                # Оскільки за Upgrade ми дали знижку в Stars за НЕВИКОРИСТАНІ дні
-                new_expires_at = now + timedelta(days=30)
-                msg_text = f"✅ План оновлено до **{tier.capitalize()}**! Бажаємо приємного користування."
+                # 2. Upgrade (перехід на вищий план)
+                # Оскільки за Recurring-апгрейд ми беремо ПОВНУ ціну, компенсуємо залишок бонусними днями
+                bonus_days = 0
+                if user and old_tier in TIER_PRICES and user.subscription_expires_at:
+                    current_expires = user.subscription_expires_at.replace(tzinfo=timezone.utc)
+                    if current_expires > now:
+                        remaining_time = current_expires - now
+                        remaining_days = remaining_time.days + (remaining_time.seconds / 86400)
+                        
+                        current_daily_price = TIER_PRICES[old_tier] / 30
+                        new_daily_price = TIER_PRICES[tier] / 30
+                        bonus_days = (remaining_days * current_daily_price) / new_daily_price
+                
+                new_expires_at = now + timedelta(days=30 + bonus_days)
+                bonus_str = f" (+{int(bonus_days)} бонусних днів)" if bonus_days >= 1 else ""
+                msg_text = f"✅ План оновлено до **{tier.capitalize()}**!{bonus_str} Бажаємо приємного користування."
             
             await session.execute(
                 update(User)
                 .where(User.id == user_id)
                 .values(subscription_tier=tier, subscription_expires_at=new_expires_at)
             )
-            await message.answer(f"✅ План оновлено до **{tier.capitalize()}**! Бажаємо приємного користування.")
+            await message.answer(msg_text)
             
         elif parts[0] == "ad":
             days = int(parts[1])
