@@ -150,8 +150,10 @@ async def get_channels(
 
     channels = []
     for ch in combined_channels:
-        # Fallback для аватарок
-        avatar = ch.avatar_url or f"/api/v1/catalog/photo/{ch.telegram_id}"
+        # Пріоритетно використовуємо системний шлях через проксі
+        # Додаємо username в query params для кращого резолвінгу в storage.py
+        username_query = f"?username={ch.username}" if ch.username else ""
+        avatar = f"/api/v1/catalog/photo/{ch.telegram_id}{username_query}"
         
         # Визначаємо статус для фронтенда (з урахуванням протухання)
         effective_status = ch.partner_status
@@ -564,12 +566,12 @@ async def add_custom_channel(req: CustomChannelRequest, db: AsyncSession = Depen
 photo_path_cache = {}
 
 @router.get("/photo/{telegram_id}")
-async def get_channel_photo(telegram_id: int):
+async def get_channel_photo(telegram_id: int, username: Optional[str] = None):
     """Отримати фото каналу: спочатку з диска, якщо немає - завантажити з Telegram"""
     from api.utils.storage import get_or_download_avatar
     from fastapi.responses import FileResponse
     
-    file_path = await get_or_download_avatar(telegram_id)
+    file_path = await get_or_download_avatar(telegram_id, username=username)
     
     if file_path and os.path.exists(file_path):
         return FileResponse(file_path, media_type="image/jpeg")

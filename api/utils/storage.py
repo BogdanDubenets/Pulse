@@ -11,10 +11,11 @@ AVATAR_DIR = os.path.join(os.getcwd(), "static", "avatars")
 # Ensure directory exists
 os.makedirs(AVATAR_DIR, exist_ok=True)
 
-async def get_or_download_avatar(telegram_id: int) -> Optional[str]:
+async def get_or_download_avatar(telegram_id: int, username: Optional[str] = None) -> Optional[str]:
     """
     Checks if avatar for telegram_id exists locally.
     If not, attempts to download it via Telegram Bot API.
+    Prioritizes username for chat identification if provided.
     Returns the path relative to the project root or None.
     """
     file_name = f"{telegram_id}.jpg"
@@ -28,23 +29,37 @@ async def get_or_download_avatar(telegram_id: int) -> Optional[str]:
     token = config.BOT_TOKEN.get_secret_value()
     async with httpx.AsyncClient() as client:
         try:
-            # Normalize ID for getChat
-            chat_id = telegram_id
-            if chat_id > 0 and chat_id < 10**12:
-                chat_id = int(f"-100{chat_id}")
+            # Determine identifier for getChat. 
+            # Prioritize username for public channels to avoid "Chat not found" by ID.
+            chat_identifier = telegram_id
+            if username:
+                chat_identifier = username if username.startswith("@") else f"@{username}"
+            elif chat_identifier > 0 and chat_identifier < 10**12:
+                chat_identifier = int(f"-100{chat_identifier}")
                 
-            logger.info(f"Downloading photo for {telegram_id} (chat_id: {chat_id})")
+            logger.info(f"Downloading photo for {telegram_id} using identifier: {chat_identifier}")
             
             # Step A: Get Chat info
-            chat_resp = await client.get(f"https://api.telegram.org/bot{token}/getChat?chat_id={chat_id}")
+            chat_resp = await client.get(f"https://api.telegram.org/bot{token}/getChat?chat_id={chat_identifier}")
+            
+            # If username failed, try original ID if different
+            if chat_resp.status_code != 200 and username:
+                alt_chat_id = telegram_id
+                if alt_chat_id > 0 and alt_chat_id < 10**12:
+                    alt_chat_id = int(f"-100{alt_chat_id}")
+                
+                if alt_chat_id != chat_identifier:
+                    logger.info(f"Retrying with alternative identifier: {alt_chat_id}")
+                    chat_resp = await client.get(f"https://api.telegram.org/bot{token}/getChat?chat_id={alt_chat_id}")
+
             if chat_resp.status_code != 200:
-                logger.error(f"getChat failed for {chat_id}: {chat_resp.text}")
+                logger.error(f"getChat failed for {chat_identifier}: {chat_resp.text}")
                 return None
                 
             chat_info = chat_resp.json().get("result", {})
             photo = chat_info.get("photo")
             if not photo:
-                logger.warning(f"No photo found for {chat_id}")
+                logger.warning(f"No photo found for {chat_identifier}")
                 return None
                 
             file_id = photo.get("big_file_id") or photo.get("small_file_id")
