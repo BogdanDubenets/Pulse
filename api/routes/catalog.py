@@ -151,10 +151,8 @@ async def get_channels(
 
     channels = []
     for ch in combined_channels:
-        # Пріоритетно використовуємо системний шлях через проксі
-        # Додаємо username в query params для кращого резолвінгу в storage.py
-        username_query = f"?username={ch.username}" if ch.username else ""
-        avatar = f"/api/v1/catalog/photo/{ch.telegram_id}{username_query}"
+        # Використовуємо прямий шлях до статики
+        avatar = ch.avatar_url or f"/static/avatars/{ch.telegram_id}.jpg"
         
         # Визначаємо статус для фронтенда (з урахуванням протухання)
         effective_status = ch.partner_status
@@ -203,9 +201,8 @@ async def get_my_channels(user_id: int, db: AsyncSession = Depends(get_db)):
     
     channels = []
     for idx, (ch, last_changed) in enumerate(rows):
-        # Пріоритетно використовуємо системний шлях через проксі
-        username_query = f"?username={ch.username}" if ch.username else ""
-        avatar = f"/api/v1/catalog/photo/{ch.telegram_id}{username_query}"
+        # Використовуємо прямий шлях до статики
+        avatar = ch.avatar_url or f"/static/avatars/{ch.telegram_id}.jpg"
         is_active_for_limit = idx < user_limit
         
         # Вираховуємо час розморозки
@@ -547,9 +544,8 @@ async def add_custom_channel(req: CustomChannelRequest, db: AsyncSession = Depen
     
     # 6. Fetch Avatar if needed
     try:
-        # Завжди оновлюємо на проксі-шлях для консистентності
-        username_query = f"?username={channel.username}" if channel.username else ""
-        channel.avatar_url = f"/api/v1/catalog/photo/{channel.telegram_id}{username_query}"
+        # Завжди оновлюємо на прямий статичний шлях
+        channel.avatar_url = f"/static/avatars/{channel.telegram_id}.jpg"
     except Exception:
         pass
 

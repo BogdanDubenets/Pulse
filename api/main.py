@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,6 +25,13 @@ app.add_middleware(
 # Include routers
 app.include_router(catalog.router)
 app.include_router(billing.router)
+
+# Mount static files for avatars
+import os
+static_path = os.path.join(os.getcwd(), "static")
+if not os.path.exists(static_path):
+    os.makedirs(static_path, exist_ok=True)
+app.mount("/static", StaticFiles(directory=static_path), name="static")
 
 # Dependency to get DB session
 async def get_db():
