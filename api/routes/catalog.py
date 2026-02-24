@@ -150,6 +150,7 @@ async def get_channels(
         user_subs = set(sub_res.scalars().all())
 
     channels = []
+    for ch in combined_channels:
         # Пріоритетно використовуємо системний шлях через проксі
         username_query = f"?username={ch.username}" if ch.username else ""
         avatar = f"/api/v1/catalog/photo/{ch.telegram_id}{username_query}"
