@@ -648,7 +648,9 @@ async def get_channel_photo(telegram_id: int, username: Optional[str] = None):
             return FileResponse(file_path, media_type="image/jpeg")
             
         logger.warning(f"Avatar file not found for {telegram_id} at {file_path}")
+        raise HTTPException(status_code=404, detail="Avatar not found")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to serve avatar for {telegram_id}: {str(e)}")
-        
-    return StreamingResponse(io.BytesIO(b""), media_type="image/png")
+        raise HTTPException(status_code=500, detail="Internal server error")
