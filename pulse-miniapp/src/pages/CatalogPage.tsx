@@ -123,13 +123,6 @@ export const CatalogPage: React.FC = () => {
                             >
                                 <Bookmark size={18} />
                             </button>
-                            <button
-                                onClick={() => navigate('/cabinet')}
-                                className="p-2 rounded-lg transition-all text-text-secondary hover:text-text-primary"
-                                title="Для адміністрування"
-                            >
-                                <UserCog size={18} />
-                            </button>
                         </div>
                     </div>
                 </header>
