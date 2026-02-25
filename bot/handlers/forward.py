@@ -32,9 +32,13 @@ async def handle_forward(message: Message):
     try:
         chat = message.forward_from_chat
         if chat.type != "channel":
-            err = await message.reply("Вибачте, я працюю тільки з Телеграм-каналами.")
-            schedule_delete(message, 3)
-            schedule_delete(err, 5)
+            err = await message.reply(
+                "🏗️ <b>Працюємо — скоро з'явиться!</b>\n\n"
+                "Наразі я обробляю лише Telegram-канали. Переходьте в Pulse, щоб побачити всі можливості. ✨",
+                reply_markup=get_webapp_kb()
+            )
+            schedule_delete(message, 5)
+            schedule_delete(err, 10)
             return
 
         logger.info(f"Forward from channel: {chat.title} (id={chat.id}) by user {message.from_user.id}")
@@ -129,12 +133,14 @@ async def handle_channel_link(message: Message):
     match = CHANNEL_PATTERN.search(text)
     
     if not match:
-        # Текст без каналу — даємо підказку
+        # Текст без каналу або інший запит — ведемо в Mini App
         hint = await message.answer(
-            "💡 Щоб додати канал — перешліть пост, надішліть @username або t.me/посилання."
+            "🏗️ <b>Працюємо — скоро з'явиться!</b>\n\n"
+            "Переходьте в Pulse, щоб користуватися всіма функціями. 📱✨",
+            reply_markup=get_webapp_kb()
         )
-        schedule_delete(message, 3)
-        schedule_delete(hint, 5)
+        schedule_delete(message, 5)
+        schedule_delete(hint, 10)
         return
     
     # Витягуємо юзернейм з посилання або @mention
