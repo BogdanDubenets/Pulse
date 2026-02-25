@@ -11,10 +11,19 @@ export interface UserStatus {
     expires_at?: string;
 }
 
+export interface AffiliateStats {
+    user_id: number;
+    referral_link: string;
+    earned_stars: number;
+    referrals_count: number;
+    commission_percent: number;
+}
+
 interface CatalogState {
     categories: CatalogCategory[];
     channels: ChannelCatalogItem[];
     userStatus: UserStatus | null;
+    affiliateStats: AffiliateStats | null;
     isLoading: boolean;
     error: string | null;
 
@@ -22,6 +31,7 @@ interface CatalogState {
     fetchChannels: (category?: string) => Promise<void>;
     fetchMyChannels: (userId: number) => Promise<void>;
     fetchUserStatus: (userId: number) => Promise<void>;
+    fetchAffiliateStats: (userId: number) => Promise<void>;
     addCustomChannel: (userId: number, url: string) => Promise<{ success: boolean; message: string }>;
     fetchAuctions: () => Promise<any[]>;
     buyPremium: (userId: number, channelId: number, category: string, days: number) => Promise<{ success: boolean; message: string }>;
@@ -37,6 +47,7 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     categories: [],
     channels: [],
     userStatus: null,
+    affiliateStats: null,
     isLoading: false,
     error: null,
 
@@ -249,6 +260,15 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
         } catch (error: any) {
             const message = error.response?.data?.detail || 'Помилка верифікації закрепу';
             return { success: false, message };
+        }
+    },
+
+    fetchAffiliateStats: async (userId: number) => {
+        try {
+            const response = await apiClient.get<AffiliateStats>(`/affiliate/stats/${userId}`);
+            set({ affiliateStats: response.data });
+        } catch (error) {
+            console.error('Failed to fetch affiliate stats:', error);
         }
     }
 }));
