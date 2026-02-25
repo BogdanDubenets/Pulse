@@ -208,7 +208,8 @@ async def get_channels(
             posts_count_24h=ch.posts_count_24h,
             is_core=ch.is_core,
             avatar_url=avatar,
-            is_subscribed=ch.id in user_subs
+            is_subscribed=ch.id in user_subs,
+            subs_total=getattr(ch, "subs_total", 0)
         ))
     return channels
 

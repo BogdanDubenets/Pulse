@@ -16,13 +16,16 @@ import {
     Newspaper,
     Loader2,
     Bookmark,
+    ExternalLink,
+    Users,
+    Check,
+    Plus,
     Landmark,
     ShieldAlert,
-    Theater,
-    ExternalLink,
-    Users
+    Theater
 } from 'lucide-react';
 import { API_ORIGIN } from '../api/client';
+import { getUserId } from '../utils/telegram';
 
 const categoryIcons: Record<string, any> = {
     '⚽ Спорт': TrendingUp,
@@ -59,6 +62,9 @@ export const CatalogPage: React.FC = () => {
     const location = useLocation();
     const { categories, channels, isLoading, error, fetchCategories, fetchChannels, subscribeToChannel, unsubscribeFromChannel } = useCatalogStore();
     const [viewMode, setViewMode] = React.useState<'categories' | 'popular'>('categories');
+    const [submittingIds, setSubmittingIds] = React.useState<Record<number, boolean>>({});
+
+    const userId = getUserId();
 
     useEffect(() => {
         if (location.state?.view === 'popular') {
@@ -239,7 +245,7 @@ export const CatalogPage: React.FC = () => {
                                         <div className="flex items-center gap-3 mt-1">
                                             <p className="text-xs text-text-muted flex items-center gap-1">
                                                 <Users className="w-3 h-3 text-primary" />
-                                                {ch.subs_total || 0} підписників
+                                                {ch.subs_total || 0} підп.
                                             </p>
                                             <p className="text-xs text-text-muted flex items-center gap-1">
                                                 <Zap className="w-3 h-3 text-amber-500" />
@@ -247,39 +253,49 @@ export const CatalogPage: React.FC = () => {
                                             </p>
                                         </div>
                                     </div>
-                                    <div className="flex flex-col gap-2">
+                                    <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0 ml-2">
                                         <a
                                             href={ch.username ? `https://t.me/${ch.username}` : '#'}
                                             target="_blank"
                                             rel="noreferrer"
-                                            className="p-2 rounded-xl bg-surface-secondary border border-border text-text-muted hover:text-primary transition-colors flex items-center justify-center"
+                                            className="p-2.5 bg-surface/50 backdrop-blur-md border border-border rounded-xl hover:bg-border transition-colors outline-none"
                                         >
-                                            <ExternalLink size={18} />
+                                            <ExternalLink className="w-5 h-5 text-text-muted" />
                                         </a>
+
                                         <button
                                             onClick={async () => {
-                                                const userId = (window as any).Telegram?.WebApp?.initDataUnsafe?.user?.id;
                                                 if (!userId) return;
-
-                                                if (ch.is_subscribed) {
-                                                    await unsubscribeFromChannel(userId, ch.id);
-                                                } else {
-                                                    const res = await subscribeToChannel(userId, ch.id);
-                                                    if (!res.success && res.errorCode === 403) {
-                                                        (window as any).Telegram?.WebApp?.showPopup?.({
-                                                            title: 'Ліміт',
-                                                            message: 'Ви досягли ліміту каналів для вашого плану.',
-                                                            buttons: [{ type: 'ok', text: 'Окей' }]
-                                                        });
+                                                setSubmittingIds(prev => ({ ...prev, [ch.id]: true }));
+                                                try {
+                                                    if (ch.is_subscribed) {
+                                                        await unsubscribeFromChannel(userId, ch.id);
+                                                    } else {
+                                                        const res = await subscribeToChannel(userId, ch.id);
+                                                        if (!res.success && res.errorCode === 403) {
+                                                            navigate('/catalog/my');
+                                                            return;
+                                                        }
                                                     }
+                                                } catch (err) {
+                                                    console.error('Subscription error:', err);
+                                                } finally {
+                                                    setSubmittingIds(prev => ({ ...prev, [ch.id]: false }));
                                                 }
                                             }}
-                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${ch.is_subscribed
-                                                ? 'bg-surface-secondary text-text-muted'
-                                                : 'bg-primary text-white shadow-lg shadow-primary/20'
+                                            disabled={submittingIds[ch.id]}
+                                            className={`p-2.5 rounded-xl transition-all flex items-center justify-center min-w-[44px] ${ch.is_subscribed
+                                                ? 'bg-success/10 text-success border border-success/20'
+                                                : 'bg-primary text-white shadow-lg shadow-primary/20 active:scale-90'
                                                 }`}
                                         >
-                                            {ch.is_subscribed ? 'Підписано' : 'Додати'}
+                                            {submittingIds[ch.id] ? (
+                                                <Loader2 className="w-5 h-5 animate-spin" />
+                                            ) : ch.is_subscribed ? (
+                                                <Check className="w-5 h-5" />
+                                            ) : (
+                                                <Plus className="w-5 h-5" />
+                                            )}
                                         </button>
                                     </div>
                                 </motion.div>
