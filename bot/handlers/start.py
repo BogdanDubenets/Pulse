@@ -1,4 +1,3 @@
-```python
 import html
 from aiogram import Router, F, Bot
 from aiogram.types import Message, CallbackQuery, WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton
@@ -46,9 +45,9 @@ async def cmd_start(message: Message, command: CommandObject, bot: Bot):
     # Реєстрація/оновлення користувача в БД
     await upsert_user(
         user_id=user.id,
-        first_name=user.first_name,
         username=user.username,
-        language_code=user.language_code,
+        first_name=user.first_name,
+        last_name=user.last_name,
         referrer_id=referrer_id
     )
     
@@ -69,96 +68,3 @@ async def cmd_start(message: Message, command: CommandObject, bot: Bot):
         logger.info(f"Start message sent to {user.id}")
     except Exception as e:
         logger.exception(f"FAIL in cmd_start: {e}")
-        await message.answer("Сталася помилка. Спробуйте /start ще раз.")
-
-
-@router.callback_query(F.data == "start:back")
-async def back_to_start(callback: CallbackQuery):
-    logger.info(f"User {callback.from_user.id} returned to start")
-    fn = callback.from_user.first_name or "Друже"
-    await callback.message.edit_text(welcome_text(fn), reply_markup=main_keyboard())
-    await callback.answer()
-
-
-# ── Інструкції додавання каналу ────────────────────────────────
-
-@router.message(Command("add"))
-async def cmd_add(message: Message):
-    """Команда /add — інструкція як додати канал"""
-    await message.answer(add_channel_text(), reply_markup=add_channel_keyboard())
-
-
-@router.callback_query(F.data == "onboarding:add")
-async def cb_add(callback: CallbackQuery):
-    await callback.message.edit_text(add_channel_text(), reply_markup=add_channel_keyboard())
-    await callback.answer()
-
-
-def add_channel_text() -> str:
-    return (
-        "➕ <b>Додати канал</b>\n\n"
-        "Є 3 способи:\n\n"
-        "📤 <b>Переслати пост</b>\n"
-        "Відкрий канал → обери будь-який пост → Forward мені\n\n"
-        "🔗 <b>Надіслати посилання</b>\n"
-        "Просто напиши або встав:\n"
-        "• <code>https://t.me/channel</code>\n"
-        "• <code>t.me/channel</code>\n\n"
-        "✍️ <b>Написати юзернейм</b>\n"
-        "• <code>@channel</code>\n\n"
-        "💡 <i>Я автоматично розпізнаю канал і додам його до твого списку!</i>"
-    )
-
-
-def add_channel_keyboard():
-    kb = InlineKeyboardBuilder()
-    kb.button(text="⬅️ Назад", callback_data="start:back")
-    kb.adjust(1)
-    return kb.as_markup()
-
-
-# ── Допомога ───────────────────────────────────────────────────
-
-@router.message(Command("help"))
-async def cmd_help(message: Message):
-    await message.answer(help_text(), reply_markup=help_keyboard())
-
-
-@router.callback_query(F.data == "onboarding:help")
-async def cb_help(callback: CallbackQuery):
-    await callback.message.edit_text(help_text(), reply_markup=help_keyboard())
-    await callback.answer()
-
-
-def help_text() -> str:
-    return (
-        "❓ <b>Допомога</b>\n\n"
-        "📌 <b>Команди:</b>\n"
-        "/start — Головне меню\n"
-        "/add — Додати канал\n"
-        "/channels — Мої канали\n"
-        "/summary — Дайджест (скоро)\n"
-        "/help — Ця довідка\n"
-        "/feedback — Залишити відгук\n\n"
-        "📌 <b>Як це працює:</b>\n"
-        "1. Додай канали, які читаєш\n"
-        "2. Я стежу за новинами 24/7\n"
-        "3. Отримуй дайджест з головним\n\n"
-        "💬 Питання? Напиши /feedback"
-    )
-
-
-def help_keyboard():
-    kb = InlineKeyboardBuilder()
-    kb.button(text="➕ Додати канал", callback_data="onboarding:add")
-    kb.button(text="⬅️ Назад", callback_data="start:back")
-    kb.adjust(1)
-    return kb.as_markup()
-
-
-# ── Обробка невідомого тексту ──────────────────────────────────
-
-@router.callback_query(F.data == "noop")
-async def noop_callback(callback: CallbackQuery):
-    """Заглушка для неактивних кнопок"""
-    await callback.answer()
