@@ -187,7 +187,7 @@ export const CatalogPage: React.FC = () => {
                                 </div>
                             </motion.div>
 
-                            {categories.map((cat) => {
+                            {categories.filter(cat => cat.channels_count > 0).map((cat) => {
                                 const Icon = getCategoryIcon(cat.name);
                                 return (
                                     <motion.div
