@@ -364,34 +364,15 @@ async def reorder_channels(req: ReorderRequest, db: AsyncSession = Depends(get_d
     Змінити порядок слотів користувача (Drag-and-Drop).
     Обмеження: не частіше ніж раз на 24г.
     """
-    from database.models import UserSubscription
-    from datetime import timezone
-    
-    # 1. Перевірка cooldown
+    # 1. Отримати всі підписки користувача
     stmt = select(UserSubscription).where(UserSubscription.user_id == req.user_id)
     res = await db.execute(stmt)
     all_subs = res.scalars().all()
     
     if not all_subs:
         return {"status": "ok"}
-    
-    # Перевіряємо самий свіжий last_changed_at серед всіх підписок
-    last_change = max(s.last_changed_at for s in all_subs)
-    lc_utc = last_change.replace(tzinfo=timezone.utc) if not last_change.tzinfo else last_change
+
     now = datetime.now(timezone.utc)
-    cooldown_end = lc_utc + timedelta(hours=24)
-    
-    if now < cooldown_end:
-        remaining = cooldown_end - now
-        hours, remainder = divmod(int(remaining.total_seconds()), 3600)
-        minutes, _ = divmod(remainder, 60)
-        time_str = f"{hours}г {minutes}хв" if hours > 0 else f"{minutes}хв"
-        raise HTTPException(
-            status_code=403, 
-            detail=f"Змінювати порядок слотів можна раз на 24г. Залишилось: {time_str}"
-        )
-    
-    # 2. Оновлення позицій
     id_to_sub = {s.channel_id: s for s in all_subs}
     for idx, ch_id in enumerate(req.channel_ids):
         if ch_id in id_to_sub:
