@@ -326,7 +326,10 @@ class ReorderRequest(BaseModel):
 
 @router.post("/subscribe")
 async def subscribe(req: SubscribeRequest, db: AsyncSession = Depends(get_db)):
-    """Підписати користувача на канал (Sales Trigger + Red Zone)"""
+    """
+    Підписати користувача на канал.
+    Sales Trigger: якщо ліміту немає — запис НЕ створюється, повертаємо 403.
+    """
     # 1. Перевірити чи існує канал
     channel = await db.get(Channel, req.channel_id)
     if not channel:
@@ -344,47 +347,45 @@ async def subscribe(req: SubscribeRequest, db: AsyncSession = Depends(get_db)):
     if res.scalar_one_or_none():
         return {"status": "ok", "message": "Вже підписані"}
 
+    # 4. ЖОРСТКА ПЕРЕВІРКА ЛІМІТУ
+    if not status["can_add"]:
+        raise HTTPException(
+            status_code=403, 
+            detail=f"LIMIT_EXCEEDED|{status['limit']}" # Тригер для Mini App показати вікно оплати
+        )
+
+    # 5. Перевірка GLobal Cooldown (24г)
     user = await db.get(User, req.user_id)
     if not user:
         user = User(id=req.user_id)
         db.add(user)
         await db.flush()
 
-    # 4. Перевірка GLobal Cooldown ТІЛЬКИ для активних слотів
-    is_active_slot = status["sub_count"] < status["limit"]
-    if is_active_slot:
-        if user.last_config_change_at:
-            now = datetime.now(timezone.utc)
-            lc_utc = user.last_config_change_at.replace(tzinfo=timezone.utc) if not user.last_config_change_at.tzinfo else user.last_config_change_at
-            cooldown_end = lc_utc + timedelta(hours=24)
-            if now < cooldown_end:
-                remaining = cooldown_end - now
-                hours, remainder = divmod(int(remaining.total_seconds()), 3600)
-                minutes, _ = divmod(remainder, 60)
-                time_str = f"{hours}г {minutes}хв" if hours > 0 else f"{minutes}хв"
-                raise HTTPException(
-                    status_code=403, 
-                    detail=f"Змінювати активні канали можна раз на 24г. Залишилось: {time_str}"
-                )
-        user.last_config_change_at = datetime.now(timezone.utc)
+    if user.last_config_change_at:
+        now = datetime.now(timezone.utc)
+        lc_utc = user.last_config_change_at.replace(tzinfo=timezone.utc) if not user.last_config_change_at.tzinfo else user.last_config_change_at
+        cooldown_end = lc_utc + timedelta(hours=24)
+        if now < cooldown_end:
+            remaining = cooldown_end - now
+            hours, remainder = divmod(int(remaining.total_seconds()), 3600)
+            minutes, _ = divmod(remainder, 60)
+            time_str = f"{hours}г {minutes}хв" if hours > 0 else f"{minutes}хв"
+            raise HTTPException(
+                status_code=403, 
+                detail=f"Змінити конфігурацію можна раз на 24г. Залишилось: {time_str}"
+            )
 
-    # 5. Визначити наступну позицію
+    # 6. Оновлення таймера та додавання підписки
+    user.last_config_change_at = datetime.now(timezone.utc)
+
     pos_stmt = select(func.max(UserSubscription.position)).where(UserSubscription.user_id == req.user_id)
     pos_res = await db.execute(pos_stmt)
     max_pos = pos_res.scalar()
     next_pos = (max_pos + 1) if max_pos is not None else 0
 
-    # 6. Додати підписку (вона потрапить у Red Zone, якщо ліміт вичерпано)
     new_sub = UserSubscription(user_id=req.user_id, channel_id=req.channel_id, position=next_pos)
     db.add(new_sub)
     await db.commit()
-
-    # 7. Sales Trigger: якщо ліміт вичерпано, повертаємо 403 для Mini App
-    if not is_active_slot:
-        raise HTTPException(
-            status_code=403, 
-            detail=f"LIMIT_EXCEEDED|{status['limit']}" # Спеціальний код для фронтенда
-        )
 
     return {"status": "ok", "message": "Успішно підписано"}
 
@@ -567,11 +568,34 @@ async def get_user_status_endpoint(user_id: int, db: AsyncSession = Depends(get_
 @router.post("/add-custom-channel")
 async def add_custom_channel(req: CustomChannelRequest, db: AsyncSession = Depends(get_db)):
     """Додати власний канал за посиланням"""
-    # 1. Перевірка лімітів та плану
+    # 1. Перевірка плану (власні канали тільки для платних)
     status = await subscription_service.get_user_status(req.user_id, db)
     if status["tier"] == "demo":
          raise HTTPException(status_code=403, detail="Додавання власних каналів доступне лише на платних планах. Будь ласка, виберіть з каталогу або покращте план.")
     
+    # 2. ЖОРСТКА ПЕРЕВІРКА ЛІМІТУ
+    if not status["can_add"]:
+        raise HTTPException(
+            status_code=403, 
+            detail=f"LIMIT_EXCEEDED|{status['limit']}"
+        )
+
+    # 3. Перевірка GLobal Cooldown
+    user = await db.get(User, req.user_id)
+    if user and user.last_config_change_at:
+        now = datetime.now(timezone.utc)
+        lc_utc = user.last_config_change_at.replace(tzinfo=timezone.utc) if not user.last_config_change_at.tzinfo else user.last_config_change_at
+        cooldown_end = lc_utc + timedelta(hours=24)
+        if now < cooldown_end:
+            remaining = cooldown_end - now
+            hours, remainder = divmod(int(remaining.total_seconds()), 3600)
+            minutes, _ = divmod(remainder, 60)
+            time_str = f"{hours}г {minutes}хв" if hours > 0 else f"{minutes}хв"
+            raise HTTPException(
+                status_code=403, 
+                detail=f"Змінити конфігурацію можна раз на 24г. Залишилось: {time_str}"
+            )
+
     # 2. Парсинг username
     username = req.url.replace("https://t.me/", "").replace("@", "").split("/")[0]
     
@@ -580,64 +604,38 @@ async def add_custom_channel(req: CustomChannelRequest, db: AsyncSession = Depen
     async with httpx.AsyncClient() as client:
         resp = await client.get(f"https://api.telegram.org/bot{token}/getChat?chat_id=@{username}")
         if resp.status_code != 200:
-            raise HTTPException(status_code=400, detail="Канал не знайдено або він приватний")
+            raise HTTPException(status_code=400, detail="Канал не знайдено в Telegram")
         
-        chat_data = resp.json().get("result", {})
-    
-    # 4. Перевірка чи є канал в базі
-    stmt = select(Channel).where(Channel.telegram_id == chat_data["id"])
-    res = await db.execute(stmt)
-    channel = res.scalar_one_or_none()
-    
-    if not channel:
-        channel = Channel(
-            telegram_id=chat_data["id"],
-            username=chat_data.get("username"),
-            title=chat_data.get("title", "Unknown"),
-            category="Custom",
-            is_core=False
-        )
-        db.add(channel)
-        await db.flush()
-    
-    # 5. Підписка
-    sub_stmt = select(UserSubscription).where(
+        tg_data = resp.json().get("result", {})
+        
+        # 4. Перевірити чи існує канал в нашій базі
+        stmt = select(Channel).where(Channel.telegram_id == tg_data["id"])
+        res = await db.execute(stmt)
+        channel = res.scalar_one_or_none()
+        
+        if not channel:
+            channel = Channel(
+                telegram_id=tg_data["id"],
+                username=tg_data.get("username"),
+                title=tg_data.get("title", "Unknown"),
+                is_active=True
+            )
+            db.add(channel)
+            await db.flush()
+
+    # 5. Перевірити чи вже підписаний
+    stmt = select(UserSubscription).where(
         UserSubscription.user_id == req.user_id,
         UserSubscription.channel_id == channel.id
     )
-    sub_res = await db.execute(sub_stmt)
-    if sub_res.scalar_one_or_none():
-        return {"status": "ok", "message": "Ви вже підписані на цей канал"}
-    
-    # 6. Fetch Avatar if needed
-    try:
-        # Завжди оновлюємо на проксі-шлях для консистентності
-        username_query = f"?username={channel.username}" if channel.username else ""
-        channel.avatar_url = f"/api/v1/catalog/photo/{channel.telegram_id}{username_query}"
-    except Exception:
-        pass
+    res = await db.execute(stmt)
+    if res.scalar_one_or_none():
+        return {"status": "ok", "message": "Вже підписані"}
 
-    # 6. Перевірка GLobal Cooldown для АКТИВНОГО слота
-    user = await db.get(User, req.user_id)
-    is_active_slot = status["sub_count"] < status["limit"]
-    if is_active_slot:
-        if user and user.last_config_change_at:
-            now = datetime.now(timezone.utc)
-            lc_utc = user.last_config_change_at.replace(tzinfo=timezone.utc) if not user.last_config_change_at.tzinfo else user.last_config_change_at
-            cooldown_end = lc_utc + timedelta(hours=24)
-            if now < cooldown_end:
-                remaining = cooldown_end - now
-                hours, remainder = divmod(int(remaining.total_seconds()), 3600)
-                minutes, _ = divmod(remainder, 60)
-                time_str = f"{hours}г {minutes}хв" if hours > 0 else f"{minutes}хв"
-                raise HTTPException(
-                    status_code=403, 
-                    detail=f"Змінювати активні канали можна раз на 24г. Залишилось: {time_str}"
-                )
-        if user:
-            user.last_config_change_at = datetime.now(timezone.utc)
+    # 7. Оновлення таймера та додавання підписки
+    if user:
+        user.last_config_change_at = datetime.now(timezone.utc)
 
-    # 7. Визначаємо наступну позицію
     pos_stmt = select(func.max(UserSubscription.position)).where(UserSubscription.user_id == req.user_id)
     pos_res = await db.execute(pos_stmt)
     max_pos = pos_res.scalar()
@@ -647,13 +645,6 @@ async def add_custom_channel(req: CustomChannelRequest, db: AsyncSession = Depen
     new_sub = UserSubscription(user_id=req.user_id, channel_id=channel.id, position=next_pos)
     db.add(new_sub)
     await db.commit()
-
-    # Sales Trigger для власних каналів
-    if not is_active_slot:
-        raise HTTPException(
-            status_code=403, 
-            detail=f"LIMIT_EXCEEDED|{status['limit']}"
-        )
 
     return {"status": "ok", "message": "Успішно підписано"}
 

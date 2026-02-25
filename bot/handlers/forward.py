@@ -74,34 +74,44 @@ async def handle_forward(message: Message):
                 # 1. Отримуємо статус лімітів
                 status_info = await subscription_service.get_user_status(message.from_user.id, session)
                 
-                # 2. Отримуємо об'єкт користувача для перевірки cooldown
+                # 2. ЖОРСТКА ПЕРЕВІРКА ЛІМІТУ
+                if not status_info["can_add"]:
+                    await message.answer(
+                        f"🚫 <b>Ліміт вичерпано</b>\n\n"
+                        f"На плані <b>{status_info['tier'].capitalize()}</b> ви можете відстежувати до {status_info['limit']} каналів.\n\n"
+                        f"Будь ласка, перейдіть у Mini App, щоб покращити свій план! ✨",
+                        reply_markup=get_webapp_kb()
+                    )
+                    return
+
+                # 3. Отримуємо об'єкт користувача для перевірки cooldown
                 user_res = await session.execute(select(User).where(User.id == message.from_user.id))
                 user = user_res.scalar_one_or_none()
                 
-                # 3. Перевірка GLobal Cooldown, якщо це підписка в АКТИВНИЙ слот
-                if status_info["sub_count"] < status_info["limit"]:
-                    if user and user.last_config_change_at:
-                        from datetime import timedelta, timezone
-                        now = datetime.now(timezone.utc)
-                        lc_utc = user.last_config_change_at.replace(tzinfo=timezone.utc) if not user.last_config_change_at.tzinfo else user.last_config_change_at
-                        cooldown_end = lc_utc + timedelta(hours=24)
-                        if now < cooldown_end:
-                            remaining = cooldown_end - now
-                            hours, remainder = divmod(int(remaining.total_seconds()), 3600)
-                            minutes, _ = divmod(remainder, 60)
-                            time_str = f"{hours}г {minutes}хв" if hours > 0 else f"{minutes}хв"
-                            await message.answer(
-                                f"🚫 <b>Зміна активних каналів обмежена</b>\n\n"
-                                f"Ви можете змінювати склад активних слотів раз на 24 години.\n"
-                                f"Залишилось: <b>{time_str}</b>.\n\n"
-                                f"Повертайтесь пізніше або керуйте черговістю у Mini App! ✨",
-                                reply_markup=get_webapp_kb()
-                            )
-                            return
-                    if user:
-                        user.last_config_change_at = datetime.now(timezone.utc)
+                # 4. Перевірка GLobal Cooldown
+                if user and user.last_config_change_at:
+                    from datetime import timedelta, timezone
+                    now = datetime.now(timezone.utc)
+                    lc_utc = user.last_config_change_at.replace(tzinfo=timezone.utc) if not user.last_config_change_at.tzinfo else user.last_config_change_at
+                    cooldown_end = lc_utc + timedelta(hours=24)
+                    if now < cooldown_end:
+                        remaining = cooldown_end - now
+                        hours, remainder = divmod(int(remaining.total_seconds()), 3600)
+                        minutes, _ = divmod(remainder, 60)
+                        time_str = f"{hours}г {minutes}хв" if hours > 0 else f"{minutes}хв"
+                        await message.answer(
+                            f"🚫 <b>Зміна конфігурації обмежена</b>\n\n"
+                            f"Ви можете змінювати склад активних каналів раз на 24 години.\n"
+                            f"Залишилось: <b>{time_str}</b>.\n\n"
+                            f"Керуйте своїми підписками у Mini App! ✨",
+                            reply_markup=get_webapp_kb()
+                        )
+                        return
+                
+                if user:
+                    user.last_config_change_at = datetime.now(timezone.utc)
 
-                # 4. Визначити наступну позицію (черга додавання)
+                # 5. Визначити наступну позицію (черга додавання)
                 pos_stmt = select(func.max(UserSubscription.position)).where(UserSubscription.user_id == message.from_user.id)
                 pos_res = await session.execute(pos_stmt)
                 max_pos = pos_res.scalar()
@@ -113,12 +123,7 @@ async def handle_forward(message: Message):
                     position=next_pos
                 ))
                 await session.commit()
-                
-                # Попередження про червону зону, якщо ліміт вичерпано
-                if not status_info["can_add"]:
-                    status = "\n\n⚠️ <b>Увага:</b> Ліміт активних каналів вичерпано. Цей канал потрапив у <b>Red Zone</b> і почне відстежуватися тільки після розширення підписки або звільнення слота."
-                else:
-                    status = "\n\n✅ Підписано! Тепер я стежу за цим каналом."
+                status = "\n\n✅ Підписано! Тепер я стежу за цим каналом."
                 
                 # Запускаємо миттєвий збір новин через монітор
                 asyncio.create_task(monitor.track_channel(channel.id))
@@ -209,31 +214,40 @@ async def handle_channel_link(message: Message):
                 # 1. Отримуємо статус лімітів
                 status_info = await subscription_service.get_user_status(message.from_user.id, session)
                 
-                # 2. Отримуємо об'єкт користувача для перевірки cooldown
+                # 2. ЖОРСТКА ПЕРЕВІРКА ЛІМІТУ
+                if not status_info["can_add"]:
+                    await message.answer(
+                        f"🚫 <b>Ліміт вичерпано</b>\n\n"
+                        f"Будь ласка, перейдіть у Mini App, щоб покращити свій план! ✨",
+                        reply_markup=get_webapp_kb()
+                    )
+                    return
+
+                # 3. Отримуємо об'єкт користувача для перевірки cooldown
                 user_res = await session.execute(select(User).where(User.id == message.from_user.id))
                 user = user_res.scalar_one_or_none()
                 
-                # 3. Перевірка GLobal Cooldown, якщо це підписка в АКТИВНИЙ слот
-                if status_info["sub_count"] < status_info["limit"]:
-                    if user and user.last_config_change_at:
-                        from datetime import timedelta, timezone
-                        now = datetime.now(timezone.utc)
-                        lc_utc = user.last_config_change_at.replace(tzinfo=timezone.utc) if not user.last_config_change_at.tzinfo else user.last_config_change_at
-                        cooldown_end = lc_utc + timedelta(hours=24)
-                        if now < cooldown_end:
-                            remaining = cooldown_end - now
-                            hours, remainder = divmod(int(remaining.total_seconds()), 3600)
-                            minutes, _ = divmod(remainder, 60)
-                            time_str = f"{hours}г {minutes}хв" if hours > 0 else f"{minutes}хв"
-                            await message.answer(
-                                f"🚫 <b>Зміна активних каналів обмежена</b>\n\n"
-                                f"Ви можете змінювати склад активних слотів раз на 24 години.\n"
-                                f"Залишилось: <b>{time_str}</b>.",
-                                reply_markup=get_webapp_kb()
-                            )
-                            return
-                    if user:
-                        user.last_config_change_at = datetime.now(timezone.utc)
+                # 4. Перевірка GLobal Cooldown
+                if user and user.last_config_change_at:
+                    from datetime import timedelta, timezone
+                    now = datetime.now(timezone.utc)
+                    lc_utc = user.last_config_change_at.replace(tzinfo=timezone.utc) if not user.last_config_change_at.tzinfo else user.last_config_change_at
+                    cooldown_end = lc_utc + timedelta(hours=24)
+                    if now < cooldown_end:
+                        remaining = cooldown_end - now
+                        hours, remainder = divmod(int(remaining.total_seconds()), 3600)
+                        minutes, _ = divmod(remainder, 60)
+                        time_str = f"{hours}г {minutes}хв" if hours > 0 else f"{minutes}хв"
+                        await message.answer(
+                            f"🚫 <b>Зміна конфігурації обмежена</b>\n\n"
+                            f"Ви можете змінювати склад активних каналів раз на 24 години.\n"
+                            f"Залишилось: <b>{time_str}</b>.",
+                            reply_markup=get_webapp_kb()
+                        )
+                        return
+                
+                if user:
+                    user.last_config_change_at = datetime.now(timezone.utc)
 
                 # Визначаємо наступну позицію (черга додавання)
                 pos_stmt = select(func.max(UserSubscription.position)).where(UserSubscription.user_id == message.from_user.id)
@@ -247,12 +261,7 @@ async def handle_channel_link(message: Message):
                     position=next_pos
                 ))
                 await session.commit()
-                
-                # Попередження про червону зону, якщо ліміт вичерпано
-                if not status_info["can_add"]:
-                    status = "✅ Додано в Red Zone"
-                else:
-                    status = "✅ Підписано!"
+                status = "✅ Підписано!"
                 
                 # Запускаємо миттєвий збір новин через монітор
                 asyncio.create_task(monitor.track_channel(channel.id))
