@@ -50,6 +50,7 @@ class ChannelCatalogItem(BaseModel):
     can_unsubscribe_at: Optional[str] = None
     is_placeholder: bool = False # Для відображення порожніх слотів
     position: Optional[int] = 0
+    subs_total: Optional[int] = 0
 
 class AuctionBidRequest(BaseModel):
     user_id: int
@@ -114,16 +115,31 @@ async def get_channels(
             .limit(50)
         )
         result = await db.execute(stmt)
-        channels_db = [row[0] for row in result.all()]
+        channels_db = []
+        for ch, count in result.all():
+            ch.subs_total = count
+            channels_db.append(ch)
         auction_channel_id = None # В глобальному топі аукціони категорій не показуємо або ігноруємо
     else:
-        # 1. Отримуємо канали за категорією (стара логіка)
-        stmt = select(Channel).where(Channel.is_active == True)
+        # 1. Отримуємо канали за категорією (стара логіка) з підрахунком підписок
+        stmt = (
+            select(
+                Channel, 
+                func.count(UserSubscription.id).label("subs_total")
+            )
+            .outerjoin(UserSubscription, Channel.id == UserSubscription.channel_id)
+            .where(Channel.is_active == True)
+        )
         if category:
             stmt = stmt.where(Channel.category == category)
         
+        stmt = stmt.group_by(Channel.id)
         result = await db.execute(stmt)
-        channels_db = result.scalars().all()
+        
+        channels_db = []
+        for ch, count in result.all():
+            ch.subs_total = count
+            channels_db.append(ch)
         
         # 2. Отримуємо переможця аукціону для категорії
         auction_channel_id = None

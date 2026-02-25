@@ -19,7 +19,8 @@ import {
     Bookmark,
     UserCog,
     ChevronRight,
-    Sparkles
+    Sparkles,
+    Users
 } from 'lucide-react';
 
 // Допоміжний компонент для слотів
@@ -261,11 +262,15 @@ export const CategoryPage: React.FC = () => {
                                     </div>
                                     <div className="flex items-center space-x-3 text-xs text-text-muted">
                                         <span className="flex items-center space-x-1">
-                                            <BarChart3 className="w-3 h-3" />
-                                            <span>{ch.posts_count_24h} постів/24г</span>
+                                            <Users className="w-3 h-3 text-primary" />
+                                            <span>{ch.subs_total || 0} підп.</span>
+                                        </span>
+                                        <span className="flex items-center space-x-1">
+                                            <Zap className="w-3 h-3 text-amber-500" />
+                                            <span>{ch.posts_count_24h} постів/добу</span>
                                         </span>
                                         {ch.username && (
-                                            <span className="text-secondary truncate">@{ch.username}</span>
+                                            <span className="text-secondary truncate hidden sm:inline">@{ch.username}</span>
                                         )}
                                     </div>
                                 </div>
