@@ -326,17 +326,15 @@ class ReorderRequest(BaseModel):
 
 @router.post("/subscribe")
 async def subscribe(req: SubscribeRequest, db: AsyncSession = Depends(get_db)):
-    """Підписати користувача на канал"""
+    """Підписати користувача на канал (дозволяє додавати понад ліміт у Red Zone)"""
     # 1. Перевірити чи існує канал
     channel = await db.get(Channel, req.channel_id)
     if not channel:
         raise HTTPException(status_code=404, detail="Канал не знайдено")
     
-    # 2. Перевірити ліміти
+    # 2. Отримуємо статус лімітів
     status = await subscription_service.get_user_status(req.user_id, db)
-    if not status["can_add"]:
-        raise HTTPException(status_code=403, detail=f"Ліміт вичерпано ({status['limit']} каналів)")
-
+    
     # 3. Перевірити чи вже підписаний
     stmt = select(UserSubscription).where(
         UserSubscription.user_id == req.user_id,
@@ -345,8 +343,35 @@ async def subscribe(req: SubscribeRequest, db: AsyncSession = Depends(get_db)):
     res = await db.execute(stmt)
     if res.scalar_one_or_none():
         return {"status": "ok", "message": "Вже підписані"}
-    
-    # 4. Визначити наступну позицію для користувача
+
+    # 4. Перевірка GLobal Cooldown, якщо це підписка в АКТИВНИЙ слот
+    user = await db.get(User, req.user_id)
+    if not user:
+        # Створюємо користувача в БД якщо ще немає (нетипово, але для безпеки)
+        from database.users import upsert_user
+        # Тут треба було б підтягнути дані з TG, але зазвичай user_id з фронта вже існує в БД
+        user = User(id=req.user_id)
+        db.add(user)
+        await db.flush()
+
+    # Якщо канал потрапить в активні слоти (sub_count < limit)
+    if status["sub_count"] < status["limit"]:
+        if user.last_config_change_at:
+            now = datetime.now(timezone.utc)
+            lc_utc = user.last_config_change_at.replace(tzinfo=timezone.utc) if not user.last_config_change_at.tzinfo else user.last_config_change_at
+            cooldown_end = lc_utc + timedelta(hours=24)
+            if now < cooldown_end:
+                remaining = cooldown_end - now
+                hours, remainder = divmod(int(remaining.total_seconds()), 3600)
+                minutes, _ = divmod(remainder, 60)
+                time_str = f"{hours}г {minutes}хв" if hours > 0 else f"{minutes}хв"
+                raise HTTPException(
+                    status_code=403, 
+                    detail=f"Змінювати активні канали можна раз на 24г. Залишилось: {time_str}"
+                )
+        user.last_config_change_at = datetime.now(timezone.utc)
+
+    # 4. Визначити наступну позицію
     pos_stmt = select(func.max(UserSubscription.position)).where(UserSubscription.user_id == req.user_id)
     pos_res = await db.execute(pos_stmt)
     max_pos = pos_res.scalar()
@@ -362,9 +387,25 @@ async def subscribe(req: SubscribeRequest, db: AsyncSession = Depends(get_db)):
 async def reorder_channels(req: ReorderRequest, db: AsyncSession = Depends(get_db)):
     """
     Змінити порядок слотів користувача (Drag-and-Drop).
-    Обмеження: не частіше ніж раз на 24г.
+    Глобальне обмеження: 1 зміна на 24г.
     """
-    # 1. Отримати всі підписки користувача
+    # 1. Перевірка Cooldown
+    user = await db.get(User, req.user_id)
+    if user and user.last_config_change_at:
+        now = datetime.now(timezone.utc)
+        lc_utc = user.last_config_change_at.replace(tzinfo=timezone.utc) if not user.last_config_change_at.tzinfo else user.last_config_change_at
+        cooldown_end = lc_utc + timedelta(hours=24)
+        if now < cooldown_end:
+            remaining = cooldown_end - now
+            hours, remainder = divmod(int(remaining.total_seconds()), 3600)
+            minutes, _ = divmod(remainder, 60)
+            time_str = f"{hours}г {minutes}хв" if hours > 0 else f"{minutes}хв"
+            raise HTTPException(
+                status_code=403, 
+                detail=f"Змінювати черговість можна раз на 24г. Залишилось: {time_str}"
+            )
+
+    # 2. Отримати всі підписки
     stmt = select(UserSubscription).where(UserSubscription.user_id == req.user_id)
     res = await db.execute(stmt)
     all_subs = res.scalars().all()
@@ -379,13 +420,17 @@ async def reorder_channels(req: ReorderRequest, db: AsyncSession = Depends(get_d
             sub = id_to_sub[ch_id]
             sub.position = idx
             sub.last_changed_at = now
+    
+    # Оновлюємо глобальний таймер
+    if user:
+        user.last_config_change_at = now
             
     await db.commit()
     return {"status": "ok"}
 
 @router.post("/unsubscribe")
 async def unsubscribe(req: SubscribeRequest, db: AsyncSession = Depends(get_db)):
-    """Відписати користувача від каналу"""
+    """Відписати користувача від каналу (також активує 24г cooldown)"""
     stmt = select(UserSubscription).where(
         UserSubscription.user_id == req.user_id,
         UserSubscription.channel_id == req.channel_id
@@ -394,22 +439,24 @@ async def unsubscribe(req: SubscribeRequest, db: AsyncSession = Depends(get_db))
     sub = res.scalar_one_or_none()
     
     if sub:
-        # Перевірка 24-годинного ліміту
-        from datetime import timezone
-        now = datetime.now(timezone.utc)
-        lc_utc = sub.last_changed_at.replace(tzinfo=timezone.utc) if not sub.last_changed_at.tzinfo else sub.last_changed_at
-        cooldown_end = lc_utc + timedelta(hours=24)
+        # Перевірка Global Cooldown
+        user = await db.get(User, req.user_id)
+        if user and user.last_config_change_at:
+            now = datetime.now(timezone.utc)
+            lc_utc = user.last_config_change_at.replace(tzinfo=timezone.utc) if not user.last_config_change_at.tzinfo else user.last_config_change_at
+            cooldown_end = lc_utc + timedelta(hours=24)
+            if now < cooldown_end:
+                remaining = cooldown_end - now
+                hours, remainder = divmod(int(remaining.total_seconds()), 3600)
+                minutes, _ = divmod(remainder, 60)
+                time_str = f"{hours}г {minutes}хв" if hours > 0 else f"{minutes}хв"
+                raise HTTPException(
+                    status_code=403, 
+                    detail=f"Змінювати активну підписку можна раз на 24г. Залишилось: {time_str}"
+                )
         
-        if now < cooldown_end:
-            remaining = cooldown_end - now
-            hours, remainder = divmod(int(remaining.total_seconds()), 3600)
-            minutes, _ = divmod(remainder, 60)
-            time_str = f"{hours}г {minutes}хв" if hours > 0 else f"{minutes}хв"
-            
-            raise HTTPException(
-                status_code=403, 
-                detail=f"Цей слот заморожено на 24г. Залишилось: {time_str}. Це захист від зловживань."
-            )
+        if user:
+            user.last_config_change_at = datetime.now(timezone.utc)
 
         await db.delete(sub)
         await db.commit()
@@ -520,8 +567,24 @@ async def add_custom_channel(req: CustomChannelRequest, db: AsyncSession = Depen
     if status["tier"] == "demo":
          raise HTTPException(status_code=403, detail="Додавання власних каналів доступне лише на платних планах. Будь ласка, виберіть з каталогу або покращте план.")
     
-    if not status["can_add"]:
-        raise HTTPException(status_code=403, detail=f"Ви досягли ліміту ({status['limit']} каналів) для вашого плану")
+    # 2. Перевірка Cooldown для АКТИВНОГО слота
+    user = await db.get(User, req.user_id)
+    if status["sub_count"] < status["limit"]:
+        if user and user.last_config_change_at:
+            now = datetime.now(timezone.utc)
+            lc_utc = user.last_config_change_at.replace(tzinfo=timezone.utc) if not user.last_config_change_at.tzinfo else user.last_config_change_at
+            cooldown_end = lc_utc + timedelta(hours=24)
+            if now < cooldown_end:
+                remaining = cooldown_end - now
+                hours, remainder = divmod(int(remaining.total_seconds()), 3600)
+                minutes, _ = divmod(remainder, 60)
+                time_str = f"{hours}г {minutes}хв" if hours > 0 else f"{minutes}хв"
+                raise HTTPException(
+                    status_code=403, 
+                    detail=f"Змінювати активні канали можна раз на 24г. Залишилось: {time_str}"
+                )
+        if user:
+            user.last_config_change_at = datetime.now(timezone.utc)
 
     # 2. Парсинг username
     username = req.url.replace("https://t.me/", "").replace("@", "").split("/")[0]

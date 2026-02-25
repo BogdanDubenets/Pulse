@@ -42,6 +42,7 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     subscription_tier: Mapped[str] = mapped_column(String, default="demo") # demo, basic, standard, premium
     subscription_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    last_config_change_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     
     # Affiliate Program
     referrer_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True)
