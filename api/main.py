@@ -9,7 +9,7 @@ from services.digest import get_user_digest_data
 from pydantic import BaseModel
 from typing import List, Optional
 
-from api.routes import catalog, billing
+from api.routes import catalog, billing, affiliate
 
 app = FastAPI(title="Pulse Mini App API", version="1.0.0")
 
@@ -25,6 +25,7 @@ app.add_middleware(
 # Include routers
 app.include_router(catalog.router)
 app.include_router(billing.router)
+app.include_router(affiliate.router)
 
 # Dependency to get DB session
 async def get_db():

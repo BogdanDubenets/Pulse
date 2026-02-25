@@ -62,6 +62,65 @@ async def process_successful_payment(message: types.Message):
                 new_expires_at = now + timedelta(days=30 + bonus_days)
                 bonus_str = f" (+{int(bonus_days)} бонусних днів)" if bonus_days >= 1 else ""
                 msg_text = f"✅ План оновлено до **{tier.capitalize()}**!{bonus_str} Бажаємо приємного користування."
+
+            # Нарахування бонусу рефереру
+            # 1. Перевіряємо офіційну партнерку Telegram (Stars Affiliate)
+            is_official_affiliate = False
+            official_affiliate_user_id = None
+            try:
+                official_affiliate = getattr(message.successful_payment, "affiliate", None)
+                if not official_affiliate and hasattr(message.successful_payment, "model_extra"):
+                    official_affiliate = message.successful_payment.model_extra.get("affiliate")
+                
+                if official_affiliate:
+                    is_official_affiliate = True
+                    # Спробуємо витягнути ID афіліата (якщо це користувач, а не канал)
+                    # AffiliateInfo.affiliate_user -> User.id
+                    aff_user = getattr(official_affiliate, "affiliate_user", None)
+                    if not aff_user and isinstance(official_affiliate, dict):
+                        aff_user = official_affiliate.get("affiliate_user")
+                    
+                    if aff_user:
+                        official_affiliate_user_id = getattr(aff_user, "id", None) or aff_user.get("id")
+                    
+                    logger.info(f"Official Telegram affiliate detected for user {user_id}. Payout handled by Telegram. Partner: {official_affiliate_user_id}")
+            except Exception as e:
+                logger.warning(f"Error checking official affiliate: {e}")
+
+            # Якщо це офіційний афіліат, а у нас ще немає referrer_id, записуємо його!
+            if is_official_affiliate and not user.referrer_id and official_affiliate_user_id:
+                # Перевіряємо, чи такий реферер є в нашій базі
+                ref_exists = await session.execute(select(User).where(User.id == official_affiliate_user_id))
+                if ref_exists.scalar_one_or_none():
+                    user.referrer_id = official_affiliate_user_id
+                    logger.info(f"Linking user {user_id} to official affiliate {official_affiliate_user_id} in our DB.")
+
+            if user.referrer_id:
+                # Вираховуємо 10% комісії (згідно зі скріншотом)
+                commission_pc = 0.10
+                earned = TIER_PRICES[tier] * commission_pc
+                
+                # Оновлюємо кількість рефералів для реферера (якщо це його перша покупка)
+                # Користувач вважається рефералом, якщо він вперше купив підписку
+                is_first_real_referral = (old_tier == "demo")
+                
+                update_values = {}
+                if is_first_real_referral:
+                    update_values["referrals_count"] = User.referrals_count + 1
+                
+                # Тільки якщо це НЕ офіційна партнерка Telegram, нараховуємо Stars вручну
+                if not is_official_affiliate:
+                    update_values["affiliate_earned_stars"] = User.affiliate_earned_stars + earned
+                    logger.info(f"Custom affiliate bonus {earned} stars credited to {user.referrer_id}")
+                else:
+                    logger.info(f"Skipping manual stars credit for {user.referrer_id} (handled by Telegram)")
+
+                if update_values:
+                    await session.execute(
+                        update(User)
+                        .where(User.id == user.referrer_id)
+                        .values(**update_values)
+                    )
             
             await session.execute(
                 update(User)

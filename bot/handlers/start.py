@@ -1,7 +1,7 @@
 import html
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, WebAppInfo
-from aiogram.filters import Command
+from aiogram.filters import Command, CommandObject
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from loguru import logger
 from config.settings import config
@@ -63,16 +63,27 @@ def welcome_text(first_name: str) -> str:
 
 
 @router.message(Command("start"))
-async def cmd_start(message: Message):
+async def cmd_start(message: Message, command: CommandObject):
     user = message.from_user
-    logger.info(f"User {user.id} started the bot")
+    logger.info(f"User {user.id} started the bot with args: {command.args}")
     
+    referrer_id = None
+    if command.args and command.args.startswith("aff_"):
+        try:
+            potential_ref = int(command.args.split("_")[1])
+            if potential_ref != user.id: # Не можна запросити самого себе
+                referrer_id = potential_ref
+                logger.info(f"User {user.id} referred by {referrer_id}")
+        except (IndexError, ValueError):
+            pass
+
     # Реєстрація/оновлення користувача в БД
     await upsert_user(
         user_id=user.id,
         first_name=user.first_name,
         username=user.username,
-        language_code=user.language_code
+        language_code=user.language_code,
+        referrer_id=referrer_id
     )
     
     try:
