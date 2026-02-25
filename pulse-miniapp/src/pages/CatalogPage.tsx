@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { useCatalogStore } from '../store/catalogStore';
 import {
@@ -56,8 +56,17 @@ const getCategoryIcon = (name: string) => {
 
 export const CatalogPage: React.FC = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { categories, channels, isLoading, error, fetchCategories, fetchChannels, subscribeToChannel, unsubscribeFromChannel } = useCatalogStore();
     const [viewMode, setViewMode] = React.useState<'categories' | 'popular'>('categories');
+
+    useEffect(() => {
+        if (location.state?.view === 'popular') {
+            setViewMode('popular');
+            // Clear state to avoid persistent redirect on refresh
+            navigate(location.pathname, { replace: true, state: {} });
+        }
+    }, [location.state, navigate, location.pathname]);
 
     useEffect(() => {
         if (viewMode === 'categories') {

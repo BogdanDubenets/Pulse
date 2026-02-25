@@ -6,104 +6,20 @@ import { useCatalogStore } from '../store/catalogStore';
 import { API_ORIGIN } from '../api/client';
 import { getUserId } from '../utils/telegram';
 import {
+    LayoutGrid,
+    Bookmark,
+    ChevronRight,
+    Sparkles,
+    Users,
+    TrendingUp,
     ArrowLeft,
     ExternalLink,
     Zap,
-    Pin,
-    BarChart3,
     Loader2,
-    Trophy,
     Plus,
-    Check,
-    LayoutGrid,
-    Bookmark,
-    UserCog,
-    ChevronRight,
-    Sparkles,
-    Users
+    Check
 } from 'lucide-react';
 
-// Допоміжний компонент для слотів
-const PromotionSlot: React.FC<{
-    type: 'auction' | 'premium' | 'pinned';
-    title: string;
-    channel?: any;
-    onDetail: () => void;
-}> = ({ type, title, channel, onDetail }) => {
-    return (
-        <div className="space-y-1.5">
-            <h3 className="text-[9px] font-black uppercase tracking-wider text-text-muted px-1 flex items-center gap-1.5 opacity-70">
-                {type === 'auction' && <Trophy className="w-2.5 h-2.5 text-accent" />}
-                {type === 'premium' && <Sparkles className="w-2.5 h-2.5 text-primary" />}
-                {type === 'pinned' && <Pin className="w-2.5 h-2.5 text-secondary" />}
-                {title}
-            </h3>
-
-            {channel ? (
-                <div className={`p-2.5 bg-surface border rounded-xl flex items-center justify-between transition-all ${type === 'auction' ? 'border-accent/40 bg-gradient-to-r from-surface to-accent/5 shadow-sm shadow-accent/5' :
-                    type === 'premium' ? 'border-primary/40 bg-gradient-to-r from-surface to-primary/5 shadow-sm shadow-primary/5' :
-                        'border-secondary/20 bg-gradient-to-r from-surface to-secondary/5'
-                    }`}>
-                    <div className="flex items-center space-x-3">
-                        <div className="relative">
-                            <div className="w-9 h-9 rounded-full overflow-hidden bg-surface-secondary border border-border flex items-center justify-center font-bold text-xs">
-                                {channel.avatar_url ? (
-                                    <img src={`${API_ORIGIN}${channel.avatar_url}`} alt={channel.title} className="w-full h-full object-cover" />
-                                ) : channel.title.charAt(0)}
-                            </div>
-                            <div className={`absolute -top-0.5 -right-0.5 p-0.5 rounded-full border border-surface ${type === 'auction' ? 'bg-accent' : type === 'premium' ? 'bg-primary' : 'bg-secondary'
-                                }`}>
-                                {type === 'auction' && <Trophy className="w-1.5 h-1.5 text-background fill-current" />}
-                                {type === 'premium' && <Zap className="w-1.5 h-1.5 text-white fill-current" />}
-                                {type === 'pinned' && <Pin className="w-1.5 h-1.5 text-white" />}
-                            </div>
-                        </div>
-                        <div className="min-w-0">
-                            <p className="font-bold text-xs truncate max-w-[100px] leading-tight">{channel.title}</p>
-                            <p className="text-[8px] text-text-muted">@{channel.username}</p>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                        <a
-                            href={`https://t.me/${channel.username}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="p-1.5 bg-surface/50 border border-border rounded-lg"
-                        >
-                            <ExternalLink size={12} className="text-text-muted" />
-                        </a>
-                        <button
-                            onClick={onDetail}
-                            className={`px-2 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${type === 'auction' ? 'bg-accent/10 text-accent' :
-                                type === 'premium' ? 'bg-primary/10 text-primary' :
-                                    'bg-secondary/10 text-secondary'
-                                }`}
-                        >
-                            Інфо
-                        </button>
-                    </div>
-                </div>
-            ) : (
-                <div
-                    onClick={onDetail}
-                    className="p-2.5 bg-surface/10 border border-dashed border-border/50 rounded-xl flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all"
-                >
-                    <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full border border-dashed border-border/50 flex items-center justify-center opacity-40">
-                            <Plus size={14} className="text-text-muted" />
-                        </div>
-                        <div className="text-left">
-                            <p className="text-[9px] font-bold text-text-muted uppercase">Вільний слот</p>
-                            <p className="text-[8px] text-text-muted opacity-60">Станьте першим тут</p>
-                        </div>
-                    </div>
-                    <ChevronRight size={12} className="text-text-muted opacity-30" />
-                </div>
-            )}
-        </div>
-    );
-};
 
 export const CategoryPage: React.FC = () => {
     const { category } = useParams<{ category: string }>();
@@ -159,9 +75,16 @@ export const CategoryPage: React.FC = () => {
                             <button
                                 onClick={() => navigate('/catalog')}
                                 className="p-2 rounded-lg transition-all text-text-secondary hover:text-text-primary"
-                                title="Каталог"
+                                title="Категорії"
                             >
                                 <LayoutGrid size={18} />
+                            </button>
+                            <button
+                                onClick={() => navigate('/catalog', { state: { view: 'popular' } })}
+                                className="p-2 rounded-lg transition-all text-text-secondary hover:text-text-primary"
+                                title="Популярні"
+                            >
+                                <TrendingUp size={18} />
                             </button>
                             <button
                                 onClick={() => navigate('/catalog/my')}
@@ -170,43 +93,10 @@ export const CategoryPage: React.FC = () => {
                             >
                                 <Bookmark size={18} />
                             </button>
-                            <button
-                                onClick={() => navigate('/cabinet')}
-                                className="p-2 rounded-lg transition-all text-text-secondary hover:text-text-primary"
-                                title="Кабінет"
-                            >
-                                <UserCog size={18} />
-                            </button>
                         </div>
                     </div>
                 </header>
 
-                {/* Promotion Slots Section */}
-                <div className="grid grid-cols-1 gap-4 mb-8">
-                    {/* 1. Auction Slot */}
-                    <PromotionSlot
-                        type="auction"
-                        title="🏆 Аукціон: Top-1 Категорії"
-                        channel={channels.find(c => c.partner_status === 'auction')}
-                        onDetail={() => navigate('/cabinet', { state: { tab: 'auctions', category } })}
-                    />
-
-                    {/* 2. Premium Slot */}
-                    <PromotionSlot
-                        type="premium"
-                        title="💎 Premium Карусель"
-                        channel={channels.find(c => c.partner_status === 'premium')}
-                        onDetail={() => navigate('/cabinet', { state: { tab: 'promote', section: 'premium' } })}
-                    />
-
-                    {/* 3. Partner Slot */}
-                    <PromotionSlot
-                        type="pinned"
-                        title="🤝 Партнерська мережа"
-                        channel={channels.find(c => c.partner_status === 'pinned')}
-                        onDetail={() => navigate('/cabinet', { state: { tab: 'promote', section: 'partner' } })}
-                    />
-                </div>
 
                 <div className="h-px bg-border/50 mx-2" />
 

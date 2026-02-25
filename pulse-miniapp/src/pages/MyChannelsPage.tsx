@@ -22,9 +22,9 @@ import {
     Trash2,
     LayoutGrid,
     Bookmark,
-    UserCog,
     Clock,
-    Sparkles
+    Sparkles,
+    TrendingUp
 } from 'lucide-react';
 
 const PLANS = [
@@ -387,12 +387,6 @@ export const MyChannelsPage: React.FC = () => {
                                 Мої канали
                             </motion.h1>
                             <div className="flex items-center space-x-2 pl-11">
-                                <button
-                                    onClick={() => navigate('/catalog')}
-                                    className="p-1 hover:bg-surface rounded-full transition-colors text-text-muted"
-                                >
-                                    <ArrowLeft size={16} />
-                                </button>
                                 <p className="text-sm text-text-secondary font-medium">Керування вашими підписками</p>
                             </div>
                         </div>
@@ -403,9 +397,16 @@ export const MyChannelsPage: React.FC = () => {
                                 <button
                                     onClick={() => navigate('/catalog')}
                                     className="p-2 rounded-lg transition-all text-text-secondary hover:text-text-primary"
-                                    title="Каталог"
+                                    title="Категорії"
                                 >
                                     <LayoutGrid size={18} />
+                                </button>
+                                <button
+                                    onClick={() => navigate('/catalog', { state: { view: 'popular' } })}
+                                    className="p-2 rounded-lg transition-all text-text-secondary hover:text-text-primary"
+                                    title="Популярні"
+                                >
+                                    <TrendingUp size={18} />
                                 </button>
                                 <button
                                     onClick={() => navigate('/catalog/my')}
@@ -413,13 +414,6 @@ export const MyChannelsPage: React.FC = () => {
                                     title="Мої канали"
                                 >
                                     <Bookmark size={18} />
-                                </button>
-                                <button
-                                    onClick={() => navigate('/cabinet')}
-                                    className="p-2 rounded-lg transition-all text-text-secondary hover:text-text-primary"
-                                    title="Кабінет"
-                                >
-                                    <UserCog size={18} />
                                 </button>
                             </div>
                         </div>
