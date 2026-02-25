@@ -21,11 +21,8 @@ async def main():
     dp = Dispatcher()
 
     # Підключення роутерів
-    from bot.handlers import start, forward, channels, digest, billing
+    from bot.handlers import start, forward
     dp.include_router(start.router)
-    dp.include_router(channels.router)
-    dp.include_router(digest.router)
-    dp.include_router(billing.router) # Billing handlers for payments
     dp.include_router(forward.router)  # Останнім — бо ловить текстові повідомлення
     
     
@@ -43,10 +40,7 @@ async def main():
 
     # Налаштування меню команд
     commands = [
-        BotCommand(command="start", description="Головне меню"),
-        BotCommand(command="channels", description="Керування підписками"),
-        BotCommand(command="help", description="Довідка та підтримка"),
-        BotCommand(command="feedback", description="Залишити відгук"),
+        BotCommand(command="start", description="Запустити Pulse"),
     ]
     await bot.set_my_commands(commands, scope=BotCommandScopeDefault())
     

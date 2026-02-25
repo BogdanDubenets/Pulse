@@ -1,6 +1,7 @@
+```python
 import html
-from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, WebAppInfo
+from aiogram import Router, F, Bot
+from aiogram.types import Message, CallbackQuery, WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command, CommandObject
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from loguru import logger
@@ -11,33 +12,19 @@ router = Router()
 
 
 def main_keyboard():
-    """Головна клавіатура бота"""
+    """Радикально проста клавіатура: ТІЛЬКИ ОДНА КНОПКА"""
     kb = InlineKeyboardBuilder()
-    
-    # Додаємо кнопку WebApp
     if config.WEBAPP_URL:
-        url = config.WEBAPP_URL
-        if not url.startswith("http"):
-            url = f"https://{url}"
-            
-        kb.button(text="📱 Відкрити Pulse", web_app=WebAppInfo(url=url))
-    
-    kb.button(text="❓ Допомога", callback_data="onboarding:help")
-    
-    kb.adjust(1)
+        kb.button(text="📱 Відкрити Pulse", web_app=WebAppInfo(url=config.WEBAPP_URL))
     return kb.as_markup()
 
 
 def welcome_text(first_name: str) -> str:
-    """Текст привітання"""
+    """Текст привітання: Ultra Minimal"""
     return (
-        f"👋 Вітаю, {html.escape(first_name)}!\n\n"
-        f"Я <b>Pulse</b> 💓 — твій розумний новинний помічник.\n\n"
-        f"Додай канали, які ти читаєш, а я буду стежити "
-        f"за новинами та готувати для тебе дайджест.\n\n"
-        f"<b>Як додати канал:</b>\n"
-        f"📤 Перешли мені пост з каналу\n"
-        f"🔗 Або надішли посилання: <code>@channel</code>"
+        f"Привіт, {first_name}! 👋\n\n"
+        "Pulse — твій персональний AI-дайджест новин.\n"
+        "Натисни кнопку нижче, щоб керувати підписками."
     )
 
 
