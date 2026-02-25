@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.connection import AsyncSessionLocal
-from database.models import Channel, Auction, User, UserSubscription
+from database.models import Channel, Auction, User, UserSubscription, Category, ChannelCategory
 from pydantic import BaseModel, HttpUrl
 from typing import List, Optional
 from datetime import datetime, timedelta, timezone
@@ -72,18 +72,25 @@ class PartnerVerifyRequest(BaseModel):
 
 @router.get("/categories", response_model=List[CategoryResponse])
 async def get_categories(db: AsyncSession = Depends(get_db)):
-    """Отримати список всіх унікальних категорій з кількістю каналів"""
-    stmt = (
-        select(Channel.category, func.count(Channel.id))
-        .where(Channel.is_active == True)
-        .group_by(Channel.category)
-        .order_by(desc(func.count(Channel.id)))
+    """Отримати список всіх видимих категорій з БД з підрахунком активних каналів"""
+    # Підраховуємо кількість каналів, які мають хоча б один пост у цій категорії
+    subq = (
+        select(ChannelCategory.category_id, func.count(ChannelCategory.channel_id).label("count"))
+        .group_by(ChannelCategory.category_id)
+        .subquery()
     )
+    
+    stmt = (
+        select(Category, func.coalesce(subq.c.count, 0))
+        .outerjoin(subq, Category.id == subq.c.category_id)
+        .where(Category.is_visible == True)
+        .order_by(desc(func.coalesce(subq.c.count, 0)), Category.name.asc())
+    )
+    
     result = await db.execute(stmt)
     categories = []
     for cat, count in result:
-        if cat:
-            categories.append({"name": cat, "channels_count": count})
+        categories.append({"name": f"{cat.emoji} {cat.name}", "channels_count": count})
     return categories
 
 @router.get("/channels", response_model=List[ChannelCatalogItem])
@@ -121,24 +128,47 @@ async def get_channels(
             channels_db.append(ch)
         auction_channel_id = None # В глобальному топі аукціони категорій не показуємо або ігноруємо
     else:
-        # 1. Отримуємо канали за категорією (стара логіка) з підрахунком підписок
+        # Логіка для категорій: використовуємо ChannelCategory для визначення активності
+        # Якщо категорія передана, ми фільтруємо канали, які в ній активні
         stmt = (
             select(
                 Channel, 
-                func.count(UserSubscription.id).label("subs_total")
+                func.count(UserSubscription.id).label("subs_total"),
+                func.coalesce(ChannelCategory.posts_count, 0).label("cat_activity")
             )
             .outerjoin(UserSubscription, Channel.id == UserSubscription.channel_id)
-            .where(Channel.is_active == True)
         )
-        if category:
-            stmt = stmt.where(Channel.category == category)
         
-        stmt = stmt.group_by(Channel.id)
+        if category:
+            # Парсимо назву категорії (прибираємо емодзі якщо є)
+            clean_cat = category.split(" ", 1)[-1] if " " in category else category
+            cat_stmt = select(Category.id).where(Category.name == clean_cat)
+            cat_res = await db.execute(cat_stmt)
+            cat_id = cat_res.scalar()
+            
+            if cat_id:
+                # JOIN з ChannelCategory для фільтрації та отримання активності
+                stmt = stmt.join(ChannelCategory, (Channel.id == ChannelCategory.channel_id) & (ChannelCategory.category_id == cat_id))
+            else:
+                # Fallback на стару логіку за рядком, якщо категорія не в новій таблиці
+                stmt = stmt.where(Channel.category == category)
+        else:
+            # Якщо категорія не вказана, просто LEFT JOIN
+            stmt = stmt.outerjoin(ChannelCategory, Channel.id == ChannelCategory.channel_id)
+
+        stmt = (
+            stmt.where(Channel.is_active == True)
+            .group_by(Channel.id, ChannelCategory.posts_count if category else Channel.id) # group_by fix
+        )
+        
+        # Виконуємо запит
         result = await db.execute(stmt)
         
         channels_db = []
-        for ch, count in result.all():
-            ch.subs_total = count
+        for row in result.all():
+            ch = row[0]
+            ch.subs_total = row[1]
+            ch.cat_activity = row[2]
             channels_db.append(ch)
         
         # 2. Отримуємо переможця аукціону для категорії
@@ -173,8 +203,12 @@ async def get_channels(
             else:
                 organic_channels.append(ch)
 
-        # 4. Сортування органіки
-        organic_channels.sort(key=lambda x: x.posts_count_24h, reverse=True)
+        # 4. Сортування органіки: за активністю в КАТЕГОРІЇ, якщо вона є, інакше за 24г
+        if category:
+            organic_channels.sort(key=lambda x: getattr(x, "cat_activity", 0), reverse=True)
+        else:
+            organic_channels.sort(key=lambda x: x.posts_count_24h, reverse=True)
+            
         combined_channels = auction_winners + premium_channels + pinned_channels + organic_channels
     
     # Отримуємо підписки користувача, якщо user_id передано
@@ -433,10 +467,10 @@ async def place_bid(bid: AuctionBidRequest, db: AsyncSession = Depends(get_db)):
 @router.get("/auctions")
 async def get_all_auctions(db: AsyncSession = Depends(get_db)):
     """Отримати всі активні аукціони для Кабінету"""
-    # Отримуємо всі унікальні категорії
-    cat_stmt = select(Channel.category).where(Channel.is_active == True).distinct()
+    # Отримуємо всі унікальні видимі категорії з БД
+    cat_stmt = select(Category).where(Category.is_visible == True)
     cat_res = await db.execute(cat_stmt)
-    categories = [cat[0] for cat in cat_res if cat[0]]
+    categories = [f"{cat.emoji} {cat.name}" for cat in cat_res.scalars().all()]
 
     # Отримуємо фактичні аукціони
     now = datetime.now(timezone.utc)

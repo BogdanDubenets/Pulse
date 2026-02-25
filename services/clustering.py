@@ -5,8 +5,8 @@ Pulse Clustering Service — логіка групування новин у с�
 from sqlalchemy import select, update
 from loguru import logger
 from database.connection import AsyncSessionLocal
-from database.models import Publication, Story
-from services.ai_service import get_text_embedding, generate_story_info
+from database.models import Publication, Story, Category, ChannelCategory
+from services.ai_service import get_text_embedding, generate_story_info, get_existing_categories
 from pgvector.sqlalchemy import Vector
 from datetime import datetime, timezone
 
@@ -62,7 +62,27 @@ async def cluster_publication(publication_id: int):
             # Map result to full category with emoji
             from services.ai_service import CATEGORY_MAP
             raw_cat = meta.get("category", "Події")
-            full_cat = CATEGORY_MAP.get(raw_cat, f"📰 {raw_cat}")
+            
+            # Динамічне отримання або створення категорії в БД
+            existing_cats = await get_existing_categories()
+            # Шукаємо збіг (case insensitive)
+            cat_name = raw_cat
+            for c in existing_cats:
+                if c.lower() == raw_cat.lower():
+                    cat_name = c
+                    break
+            
+            # Знаходимо або створюємо категорію в таблиці categories
+            stmt_cat = select(Category).where(Category.name == cat_name)
+            res_cat = await session.execute(stmt_cat)
+            db_cat = res_cat.scalar_one_or_none()
+            
+            if not db_cat:
+                db_cat = Category(name=cat_name, emoji="📰")
+                session.add(db_cat)
+                await session.flush()
+            
+            full_cat = f"{db_cat.emoji} {db_cat.name}"
 
             new_story = Story(
                 title=meta.get("title", "Нова подія"),
@@ -80,6 +100,30 @@ async def cluster_publication(publication_id: int):
             publication.category = full_cat # Set direct category
             status = "created"
             logger.info(f"Created new story {new_story.id}: {new_story.title}")
+
+        # 5. Оновлюємо ChannelCategory активність
+        if publication.channel_id and db_cat:
+            stmt_ch_cat = select(ChannelCategory).where(
+                ChannelCategory.channel_id == publication.channel_id,
+                ChannelCategory.category_id == db_cat.id
+            )
+            res_ch_cat = await session.execute(stmt_ch_cat)
+            ch_cat = res_ch_cat.scalar_one_or_none()
+            
+            if not ch_cat:
+                ch_cat = ChannelCategory(
+                    channel_id=publication.channel_id,
+                    category_id=db_cat.id,
+                    posts_count=1,
+                    last_post_at=publication.published_at
+                )
+                session.add(ch_cat)
+            else:
+                ch_cat.posts_count += 1
+                if publication.published_at > ch_cat.last_post_at:
+                    ch_cat.last_post_at = publication.published_at
+            
+            logger.info(f"Updated ChannelCategory: channel={publication.channel_id}, cat={db_cat.name}, posts={ch_cat.posts_count}")
 
         await session.commit()
         return status

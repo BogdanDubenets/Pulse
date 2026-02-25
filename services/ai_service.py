@@ -13,6 +13,10 @@ from loguru import logger
 # Ініціалізація клієнта Gemini з підтримкою v1beta (для text-embedding-004)
 client = genai.Client(api_key=config.GEMINI_API_KEY)
 
+from database.connection import AsyncSessionLocal
+from database.models import Category
+from sqlalchemy import select
+
 # Модель для генерації тексту
 MODEL_ID = "gemini-2.0-flash"
 
@@ -35,13 +39,25 @@ CLASSIFY_PROMPT = """Ти — AI-класифікатор українських
 """
 
 
+async def get_existing_categories() -> list[str]:
+    """Отримує список назв категорій з БД."""
+    try:
+        async with AsyncSessionLocal() as session:
+            stmt = select(Category.name).where(Category.is_visible == True)
+            res = await session.execute(stmt)
+            return list(res.scalars().all())
+    except Exception as e:
+        logger.error(f"Error fetching categories: {e}")
+        return CATEGORY_NAMES_FOR_AI
+
 async def classify_channel(title: str, username: str | None, sample_text: str | None) -> str:
     """
     Визначає категорію каналу через Gemini Flash.
     """
     try:
+        existing_cats = await get_existing_categories()
         prompt = CLASSIFY_PROMPT.format(
-            categories="\n".join(f"- {c}" for c in CATEGORY_NAMES_FOR_AI),
+            categories="\n".join(f"- {c}" for c in existing_cats),
             title=title or "невідомо",
             username=username or "відсутній",
             sample_text=(sample_text or "текст відсутній")[:500]
