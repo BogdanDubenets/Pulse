@@ -6,7 +6,6 @@ import { useCatalogStore } from '../store/catalogStore';
 import { API_ORIGIN } from '../api/client';
 import { getUserId } from '../utils/telegram';
 import {
-    ArrowLeft,
     ExternalLink,
     Zap,
     Pin,

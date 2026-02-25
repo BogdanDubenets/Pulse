@@ -8,8 +8,6 @@ import { getUserId } from '../utils/telegram';
 import {
     LayoutGrid,
     Bookmark,
-    ChevronRight,
-    Sparkles,
     Users,
     TrendingUp,
     ArrowLeft,
@@ -17,7 +15,9 @@ import {
     Zap,
     Loader2,
     Plus,
-    Check
+    Check,
+    Trophy,
+    Pin
 } from 'lucide-react';
 
 
