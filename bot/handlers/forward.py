@@ -167,118 +167,41 @@ async def handle_channel_link(message: Message):
             else:
                 status = "✅ Ви вже підписані"
         
-        # Результат
-        bot_msg = await message.answer(
-            f"📺 <b>{channel.title}</b>\n"
-            f"@{channel.username}\n\n"
-            f"{status}"
-        )
+            # Результат
+            if config.WEBAPP_URL:
+                kb = InlineKeyboardBuilder()
+                kb.button(text="📱 Відкрити Pulse", web_app=WebAppInfo(url=config.WEBAPP_URL))
+                kb.adjust(1)
+                reply_markup = kb.as_markup()
+            else:
+                reply_markup = None
 
-        # AI класифікація (якщо категорія ще дефолтна)
-        if channel.category == "📰 Події":
-            ai_category = await classify_channel(
-                title=channel.title,
-                username=channel.username,
-                sample_text=None
-            )
-            await channel_service.update_category(channel.id, ai_category)
-            await bot_msg.edit_text(
+            bot_msg = await message.answer(
                 f"📺 <b>{channel.title}</b>\n"
-                f"@{channel.username}\n"
-                f"📂 Категорія: <b>{ai_category}</b>\n\n"
-                f"{status}"
+                f"@{channel.username}\n\n"
+                f"{status}",
+                reply_markup=reply_markup
             )
 
-        schedule_delete(message, 3)
-        schedule_delete(bot_msg, 10)
+            # AI класифікація (якщо категорія ще дефолтна)
+            if channel.category == "📰 Події":
+                ai_category = await classify_channel(
+                    title=channel.title,
+                    username=channel.username,
+                    sample_text=None
+                )
+                await channel_service.update_category(channel.id, ai_category)
+                await bot_msg.edit_text(
+                    f"📺 <b>{channel.title}</b>\n"
+                    f"@{channel.username}\n"
+                    f"📂 Категорія: <b>{ai_category}</b>\n\n"
+                    f"{status}",
+                    reply_markup=reply_markup
+                )
+
+            schedule_delete(message, 3)
+            schedule_delete(bot_msg, 15)
         
     except Exception as e:
         logger.exception(f"ERROR in handle_channel_link: {e}")
         await message.reply(f"Сталася помилка: {e}")
-
-
-# ── Ручна зміна категорії (fallback) ──────────────────────────
-
-@router.callback_query(F.data.startswith("fwdtype:"))
-async def choose_category_type(callback: CallbackQuery):
-    """Крок 1: Обрати тип категорії для ручної зміни"""
-    channel_id = int(callback.data.split(":")[1])
-    
-    keyboard = InlineKeyboardBuilder()
-    keyboard.button(text="📰 Тематична", callback_data=f"fwdlist:{channel_id}:thematic")
-    keyboard.button(text="📍 Регіональна", callback_data=f"fwdlist:{channel_id}:regional")
-    keyboard.button(text="✍️ Авторський", callback_data=f"fwdlist:{channel_id}:author")
-    keyboard.adjust(2)
-    
-    await callback.message.edit_text(
-        "📂 <b>Змінити категорію</b>\n\nОберіть тип:",
-        reply_markup=keyboard.as_markup()
-    )
-    await callback.answer()
-
-
-@router.callback_query(F.data.startswith("fwdlist:"))
-async def show_category_list(callback: CallbackQuery):
-    """Крок 2: Показати конкретні категорії обраного типу"""
-    parts = callback.data.split(":")
-    channel_id = int(parts[1])
-    cat_type = parts[2]
-    
-    if cat_type == "thematic":
-        categories = THEMATIC_CATEGORIES
-        title = "📰 Оберіть тематичну категорію:"
-    elif cat_type == "regional":
-        categories = REGIONAL_CATEGORIES
-        title = "📍 Оберіть регіон:"
-    else:
-        categories = AUTHOR_CATEGORIES
-        title = "✍️ Авторські канали:"
-    
-    keyboard = InlineKeyboardBuilder()
-    for cat in categories:
-        keyboard.button(text=cat, callback_data=f"fwdcat:{channel_id}:{cat}")
-    keyboard.button(text="⬅️ Назад", callback_data=f"fwdtype:{channel_id}")
-    keyboard.adjust(2)
-    
-    await callback.message.edit_text(title, reply_markup=keyboard.as_markup())
-    await callback.answer()
-
-
-@router.callback_query(F.data.startswith("fwdcat:"))
-async def set_channel_category(callback: CallbackQuery):
-    """Крок 3: Зберігаємо обрану категорію"""
-    parts = callback.data.split(":", 2)
-    channel_id = int(parts[1])
-    category = parts[2]
-    user_id = callback.from_user.id
-    
-    logger.info(f"User {user_id} manually set category '{category}' for channel {channel_id}")
-    
-    try:
-        async with AsyncSessionLocal() as session:
-            channel = await session.get(Channel, channel_id)
-            if not channel:
-                await callback.answer("Канал не знайдено", show_alert=True)
-                return
-            
-            channel.category = category
-            await session.commit()
-            
-            logger.info(f"Channel '{channel.title}' → category '{category}' (manual)")
-        
-        keyboard = InlineKeyboardBuilder()
-        keyboard.button(text="📚 До каталогу", callback_data="onboarding:catalog")
-        keyboard.button(text="🏠 На головну", callback_data="start:back")
-        keyboard.adjust(2)
-        
-        await callback.message.edit_text(
-            f"✅ <b>Категорію змінено!</b>\n\n"
-            f"📺 <b>{channel.title}</b>\n"
-            f"📂 Нова категорія: <b>{category}</b>",
-            reply_markup=keyboard.as_markup()
-        )
-        await callback.answer("Категорію оновлено!")
-        
-    except Exception as e:
-        logger.exception(f"ERROR in set_channel_category: {e}")
-        await callback.answer(f"Помилка: {e}", show_alert=True)

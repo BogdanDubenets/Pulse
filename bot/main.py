@@ -21,9 +21,8 @@ async def main():
     dp = Dispatcher()
 
     # Підключення роутерів
-    from bot.handlers import start, catalog, forward, channels, digest, billing
+    from bot.handlers import start, forward, channels, digest, billing
     dp.include_router(start.router)
-    dp.include_router(catalog.router)
     dp.include_router(channels.router)
     dp.include_router(digest.router)
     dp.include_router(billing.router) # Billing handlers for payments
@@ -44,12 +43,9 @@ async def main():
 
     # Налаштування меню команд
     commands = [
-        BotCommand(command="start", description="Почати роботу з ботом"),
-        BotCommand(command="add", description="Додати канал посиланням"),
-        BotCommand(command="channels", description="Мої канали"),
-        BotCommand(command="summary", description="Отримати дайджест зараз"),
-        BotCommand(command="settings", description="Налаштування"),
-        BotCommand(command="help", description="Довідка"),
+        BotCommand(command="start", description="Головне меню"),
+        BotCommand(command="channels", description="Керування підписками"),
+        BotCommand(command="help", description="Довідка та підтримка"),
         BotCommand(command="feedback", description="Залишити відгук"),
     ]
     await bot.set_my_commands(commands, scope=BotCommandScopeDefault())

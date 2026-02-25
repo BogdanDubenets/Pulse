@@ -16,23 +16,15 @@ def main_keyboard():
     
     # Додаємо кнопку WebApp
     if config.WEBAPP_URL:
-        # Для Telegram WebApp потрібен HTTPS, але для тестів може бути HTTP (з попередженням)
         url = config.WEBAPP_URL
         if not url.startswith("http"):
             url = f"https://{url}"
             
         kb.button(text="📱 Відкрити Pulse", web_app=WebAppInfo(url=url))
     
-    kb.button(text="📋 Мої канали", callback_data="my_channels")
-    kb.button(text="➕ Додати канал", callback_data="onboarding:add")
     kb.button(text="❓ Допомога", callback_data="onboarding:help")
     
-    if config.WEBAPP_URL:
-        # Велика кнопка зверху (1), потім дві менші (2), потім одна (1)
-        kb.adjust(1, 2, 1)
-    else:
-        kb.adjust(2, 1)
-        
+    kb.adjust(1)
     return kb.as_markup()
 
 

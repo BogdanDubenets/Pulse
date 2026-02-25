@@ -163,12 +163,16 @@ class ChannelMonitor:
                     self.chat_id = chat_id
                     self.is_channel = True
 
-            async for message in self.client.iter_messages(telegram_identifier, limit=limit, offset_date=offset_date, reverse=True):
+            # Якщо hours вказано, прибираємо ліміт у 100 постів, бо нам потрібні всі за цей період
+            scan_limit = limit if not hours else None
+
+            async for message in self.client.iter_messages(telegram_identifier, limit=scan_limit):
                 if not message.message:
                     continue
                 
-                # Якщо ми йдемо в reverse=True, то повідомлення будуть від старих до нових
-                # Якщо ми збираємо за часом, iter_messages сам зупиниться на offset_date
+                # Якщо є поріг по часу — зупиняємось, як тільки повідомлення стає застарілим
+                if offset_date and message.date < offset_date:
+                    break
                 
                 event = FakeEvent(message, telegram_identifier)
                 await self.save_and_cluster(event, channel_db_id)
