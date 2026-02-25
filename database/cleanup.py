@@ -14,15 +14,21 @@ async def cleanup_old_data(hours: int = 24):
     
     try:
         async with AsyncSessionLocal() as session:
-            # 1. Видаляємо історії
-            from database.models import ChannelCategory, Publication
-            from sqlalchemy import func
+            from database.models import ChannelCategory, Publication, Story
+            from sqlalchemy import func, select, update, delete
             
-            stmt = delete(Story).where(Story.last_updated_at < threshold)
-            result = await session.execute(stmt)
-            deleted_stories = result.rowcount
+            # 1. Спершу видаляємо публікації, які старші за поріг (незалежно від сюжетів)
+            pub_del_stmt = delete(Publication).where(Publication.published_at < threshold)
+            pub_res = await session.execute(pub_del_stmt)
+            deleted_pubs = pub_res.rowcount
+
+            # 2. Видаляємо історії, які не оновлювалися
+            story_del_stmt = delete(Story).where(Story.last_updated_at < threshold)
+            story_res = await session.execute(story_del_stmt)
+            deleted_stories = story_res.rowcount
             
-            # 2. Оновлюємо статистику ChannelCategory
+            # 3. Оновлюємо статистику ChannelCategory
+            # ... (решта логіки без змін)
             # Ми перераховуємо к-сть постів для всіх записів, щоб вони були синхронні з 24г вікном
             # Отримуємо актуальні лічильники
             stats_stmt = (
