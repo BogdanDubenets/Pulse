@@ -326,7 +326,7 @@ class ReorderRequest(BaseModel):
 
 @router.post("/subscribe")
 async def subscribe(req: SubscribeRequest, db: AsyncSession = Depends(get_db)):
-    """Підписати користувача на канал (дозволяє додавати понад ліміт у Red Zone)"""
+    """Підписати користувача на канал (Sales Trigger + Red Zone)"""
     # 1. Перевірити чи існує канал
     channel = await db.get(Channel, req.channel_id)
     if not channel:
@@ -344,18 +344,15 @@ async def subscribe(req: SubscribeRequest, db: AsyncSession = Depends(get_db)):
     if res.scalar_one_or_none():
         return {"status": "ok", "message": "Вже підписані"}
 
-    # 4. Перевірка GLobal Cooldown, якщо це підписка в АКТИВНИЙ слот
     user = await db.get(User, req.user_id)
     if not user:
-        # Створюємо користувача в БД якщо ще немає (нетипово, але для безпеки)
-        from database.users import upsert_user
-        # Тут треба було б підтягнути дані з TG, але зазвичай user_id з фронта вже існує в БД
         user = User(id=req.user_id)
         db.add(user)
         await db.flush()
 
-    # Якщо канал потрапить в активні слоти (sub_count < limit)
-    if status["sub_count"] < status["limit"]:
+    # 4. Перевірка GLobal Cooldown ТІЛЬКИ для активних слотів
+    is_active_slot = status["sub_count"] < status["limit"]
+    if is_active_slot:
         if user.last_config_change_at:
             now = datetime.now(timezone.utc)
             lc_utc = user.last_config_change_at.replace(tzinfo=timezone.utc) if not user.last_config_change_at.tzinfo else user.last_config_change_at
@@ -371,16 +368,24 @@ async def subscribe(req: SubscribeRequest, db: AsyncSession = Depends(get_db)):
                 )
         user.last_config_change_at = datetime.now(timezone.utc)
 
-    # 4. Визначити наступну позицію
+    # 5. Визначити наступну позицію
     pos_stmt = select(func.max(UserSubscription.position)).where(UserSubscription.user_id == req.user_id)
     pos_res = await db.execute(pos_stmt)
     max_pos = pos_res.scalar()
     next_pos = (max_pos + 1) if max_pos is not None else 0
 
-    # 5. Додати підписку
+    # 6. Додати підписку (вона потрапить у Red Zone, якщо ліміт вичерпано)
     new_sub = UserSubscription(user_id=req.user_id, channel_id=req.channel_id, position=next_pos)
     db.add(new_sub)
     await db.commit()
+
+    # 7. Sales Trigger: якщо ліміт вичерпано, повертаємо 403 для Mini App
+    if not is_active_slot:
+        raise HTTPException(
+            status_code=403, 
+            detail=f"LIMIT_EXCEEDED|{status['limit']}" # Спеціальний код для фронтенда
+        )
+
     return {"status": "ok", "message": "Успішно підписано"}
 
 @router.post("/reorder")
@@ -567,25 +572,6 @@ async def add_custom_channel(req: CustomChannelRequest, db: AsyncSession = Depen
     if status["tier"] == "demo":
          raise HTTPException(status_code=403, detail="Додавання власних каналів доступне лише на платних планах. Будь ласка, виберіть з каталогу або покращте план.")
     
-    # 2. Перевірка Cooldown для АКТИВНОГО слота
-    user = await db.get(User, req.user_id)
-    if status["sub_count"] < status["limit"]:
-        if user and user.last_config_change_at:
-            now = datetime.now(timezone.utc)
-            lc_utc = user.last_config_change_at.replace(tzinfo=timezone.utc) if not user.last_config_change_at.tzinfo else user.last_config_change_at
-            cooldown_end = lc_utc + timedelta(hours=24)
-            if now < cooldown_end:
-                remaining = cooldown_end - now
-                hours, remainder = divmod(int(remaining.total_seconds()), 3600)
-                minutes, _ = divmod(remainder, 60)
-                time_str = f"{hours}г {minutes}хв" if hours > 0 else f"{minutes}хв"
-                raise HTTPException(
-                    status_code=403, 
-                    detail=f"Змінювати активні канали можна раз на 24г. Залишилось: {time_str}"
-                )
-        if user:
-            user.last_config_change_at = datetime.now(timezone.utc)
-
     # 2. Парсинг username
     username = req.url.replace("https://t.me/", "").replace("@", "").split("/")[0]
     
@@ -631,17 +617,45 @@ async def add_custom_channel(req: CustomChannelRequest, db: AsyncSession = Depen
     except Exception:
         pass
 
-    # 7. Визначити наступну позицію
+    # 6. Перевірка GLobal Cooldown для АКТИВНОГО слота
+    user = await db.get(User, req.user_id)
+    is_active_slot = status["sub_count"] < status["limit"]
+    if is_active_slot:
+        if user and user.last_config_change_at:
+            now = datetime.now(timezone.utc)
+            lc_utc = user.last_config_change_at.replace(tzinfo=timezone.utc) if not user.last_config_change_at.tzinfo else user.last_config_change_at
+            cooldown_end = lc_utc + timedelta(hours=24)
+            if now < cooldown_end:
+                remaining = cooldown_end - now
+                hours, remainder = divmod(int(remaining.total_seconds()), 3600)
+                minutes, _ = divmod(remainder, 60)
+                time_str = f"{hours}г {minutes}хв" if hours > 0 else f"{minutes}хв"
+                raise HTTPException(
+                    status_code=403, 
+                    detail=f"Змінювати активні канали можна раз на 24г. Залишилось: {time_str}"
+                )
+        if user:
+            user.last_config_change_at = datetime.now(timezone.utc)
+
+    # 7. Визначаємо наступну позицію
     pos_stmt = select(func.max(UserSubscription.position)).where(UserSubscription.user_id == req.user_id)
     pos_res = await db.execute(pos_stmt)
     max_pos = pos_res.scalar()
     next_pos = (max_pos + 1) if max_pos is not None else 0
 
+    # 8. Додати підписку
     new_sub = UserSubscription(user_id=req.user_id, channel_id=channel.id, position=next_pos)
     db.add(new_sub)
     await db.commit()
-    
-    return {"status": "ok", "message": "Канал успішно додано до ваших підписок"}
+
+    # Sales Trigger для власних каналів
+    if not is_active_slot:
+        raise HTTPException(
+            status_code=403, 
+            detail=f"LIMIT_EXCEEDED|{status['limit']}"
+        )
+
+    return {"status": "ok", "message": "Успішно підписано"}
 
 # Simple in-memory cache for file paths to reduce Telegram API calls
 @router.get("/photo/{telegram_id}")
