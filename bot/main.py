@@ -49,7 +49,15 @@ async def main():
         BotCommand(command="feedback", description="Залишити відгук"),
     ]
     await bot.set_my_commands(commands, scope=BotCommandScopeDefault())
-    logger.info("Bot commands menu set.")
+    
+    # Налаштування глобальної кнопки меню (WebApp)
+    from aiogram.types import MenuButtonWebApp, WebAppInfo
+    if config.WEBAPP_URL:
+        await bot.set_chat_menu_button(
+            menu_button=MenuButtonWebApp(text="Pulse 📱", web_app=WebAppInfo(url=config.WEBAPP_URL))
+        )
+    
+    logger.info("Bot commands and menu button set.")
 
     try:
         # Пропускаємо старі накопичені запити при запуску

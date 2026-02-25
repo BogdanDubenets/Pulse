@@ -14,6 +14,7 @@ from bot.categories import THEMATIC_CATEGORIES, REGIONAL_CATEGORIES, AUTHOR_CATE
 from services.ai_service import classify_channel
 from services.monitor import monitor
 from services.channel_service import channel_service
+from services.subscription_service import subscription_service
 
 router = Router()
 
@@ -66,23 +67,34 @@ async def handle_forward(message: Message):
             subscription = sub_result.scalar_one_or_none()
             
             if not subscription:
+                # ПЕРЕВІРКА ЛІМІТУ
+                status_info = await subscription_service.get_user_status(message.from_user.id, session)
+                if not status_info["can_add"]:
+                    await message.answer(
+                        f"🚫 <b>Ліміт вичерпано</b>\n\n"
+                        f"На плані <b>{status_info['tier'].capitalize()}</b> ви можете відстежувати до {status_info['limit']} каналів.\n\n"
+                        f"Будь ласка, перейдіть у Mini App, щоб видалити зайві канали або покращити свій план! ✨",
+                        reply_markup=get_webapp_kb()
+                    )
+                    return
+
                 session.add(UserSubscription(
                     user_id=message.from_user.id,
                     channel_id=channel.id
                 ))
                 await session.commit()
-                status = "\n\n✅ Підписано!"
+                status = "\n\n✅ Підписано! Тепер я стежу за цим каналом."
                 # Запускаємо миттєвий збір новин через монітор
                 asyncio.create_task(monitor.track_channel(channel.id))
             else:
-                status = "\n\n✅ Ви вже підписані"
+                status = "\n\n✅ Ви вже підписані на цей канал."
             
             # Якщо канал зовсім новий (щойно створений сервісом), запускаємо аналіз категорії
-            # Ми можемо перевірити це за часом створення або просто запустити класифікацію для профілактики
             
             bot_msg = await message.answer(
                 f"📺 <b>{channel.title}</b>"
-                f"{status}"
+                f"{status}",
+                reply_markup=get_webapp_kb()
             )
 
             # AI класифікація (якщо категорія ще дефолтна)
@@ -156,6 +168,17 @@ async def handle_channel_link(message: Message):
                 )
             )
             if not sub_result.scalar_one_or_none():
+                # ПЕРЕВІРКА ЛІМІТУ
+                status_info = await subscription_service.get_user_status(message.from_user.id, session)
+                if not status_info["can_add"]:
+                    await message.answer(
+                        f"🚫 <b>Ліміт вичерпано</b>\n\n"
+                        f"На плані <b>{status_info['tier'].capitalize()}</b> ви можете відстежувати до {status_info['limit']} каналів.\n\n"
+                        f"Будь ласка, перейдіть у Mini App, щоб видалити зайві канали або покращити свій план! ✨",
+                        reply_markup=get_webapp_kb()
+                    )
+                    return
+
                 session.add(UserSubscription(
                     user_id=message.from_user.id,
                     channel_id=channel.id
@@ -205,3 +228,13 @@ async def handle_channel_link(message: Message):
     except Exception as e:
         logger.exception(f"ERROR in handle_channel_link: {e}")
         await message.reply(f"Сталася помилка: {e}")
+
+
+def get_webapp_kb():
+    """Допоміжна функція для створення кнопки Mini App"""
+    from aiogram.types import WebAppInfo
+    if config.WEBAPP_URL:
+        kb = InlineKeyboardBuilder()
+        kb.button(text="📱 Відкрити Pulse", web_app=WebAppInfo(url=config.WEBAPP_URL))
+        return kb.as_markup()
+    return None

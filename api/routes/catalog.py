@@ -3,6 +3,7 @@ from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.connection import AsyncSessionLocal
 from database.models import Channel, Auction, User, UserSubscription, Category, ChannelCategory
+from services.subscription_service import subscription_service
 from pydantic import BaseModel, HttpUrl
 from typing import List, Optional
 from datetime import datetime, timedelta, timezone
@@ -332,7 +333,7 @@ async def subscribe(req: SubscribeRequest, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Канал не знайдено")
     
     # 2. Перевірити ліміти
-    status = await get_user_status(req.user_id, db)
+    status = await subscription_service.get_user_status(req.user_id, db)
     if not status["can_add"]:
         raise HTTPException(status_code=403, detail=f"Ліміт вичерпано ({status['limit']} каналів)")
 
@@ -526,51 +527,15 @@ async def verify_partner_pin(req: PartnerVerifyRequest, db: AsyncSession = Depen
     await db.commit()
     return {"status": "ok", "message": "Закреп підтверджено! Статус діє 7 днів."}
 @router.get("/user/status/{user_id}")
-async def get_user_status(user_id: int, db: AsyncSession = Depends(get_db)):
+async def get_user_status_endpoint(user_id: int, db: AsyncSession = Depends(get_db)):
     """Отримати статус підписки та кількість каналів"""
-    user_res = await db.execute(select(User).where(User.id == user_id))
-    user = user_res.scalar_one_or_none()
-    
-    if not user:
-        # Створити юзера якщо немає (базовий кейс)
-        user = User(id=user_id, subscription_tier="demo")
-        db.add(user)
-        await db.commit()
-    
-    sub_count_res = await db.execute(
-        select(func.count(UserSubscription.id)).where(UserSubscription.user_id == user_id)
-    )
-    sub_count = sub_count_res.scalar() or 0
-    
-    # Визначаємо ліміти
-    limits = {
-        "demo": 3,
-        "basic": 6,
-        "standard": 10,
-        "premium": 15
-    }
-    
-    user_tier = user.subscription_tier
-    expires_at = None
-    if user.subscription_expires_at:
-        expires_at = user.subscription_expires_at.isoformat()
-        # Якщо підписка закінчилась — скидаємо на demo (візуально)
-        if user.subscription_expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
-             user_tier = "demo"
-    
-    return {
-        "tier": user_tier,
-        "sub_count": sub_count,
-        "limit": limits.get(user_tier, 3),
-        "can_add": sub_count < limits.get(user_tier, 3),
-        "expires_at": expires_at
-    }
+    return await subscription_service.get_user_status(user_id, db)
 
 @router.post("/add-custom-channel")
 async def add_custom_channel(req: CustomChannelRequest, db: AsyncSession = Depends(get_db)):
     """Додати власний канал за посиланням"""
     # 1. Перевірка лімітів та плану
-    status = await get_user_status(req.user_id, db)
+    status = await subscription_service.get_user_status(req.user_id, db)
     if status["tier"] == "demo":
          raise HTTPException(status_code=403, detail="Додавання власних каналів доступне лише на платних планах. Будь ласка, виберіть з каталогу або покращте план.")
     
