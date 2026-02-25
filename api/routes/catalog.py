@@ -357,7 +357,12 @@ async def subscribe(req: SubscribeRequest, db: AsyncSession = Depends(get_db)):
     # 5. Перевірка GLobal Cooldown (24г)
     user = await db.get(User, req.user_id)
     if not user:
-        user = User(id=req.user_id)
+        # Безпечна ініціалізація нового користувача
+        user = User(
+            id=req.user_id,
+            subscription_tier="demo",
+            is_active=True
+        )
         db.add(user)
         await db.flush()
 
@@ -633,6 +638,16 @@ async def add_custom_channel(req: CustomChannelRequest, db: AsyncSession = Depen
         return {"status": "ok", "message": "Вже підписані"}
 
     # 7. Оновлення таймера та додавання підписки
+    if not user:
+        # Безпечна ініціалізація
+        user = User(
+            id=req.user_id,
+            subscription_tier="demo",
+            is_active=True
+        )
+        db.add(user)
+        await db.flush()
+
     if user:
         user.last_config_change_at = datetime.now(timezone.utc)
 

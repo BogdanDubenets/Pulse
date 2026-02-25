@@ -30,7 +30,7 @@ class SubscriptionService:
             tier = "demo"
             expires_at = None
         else:
-            tier = user.subscription_tier
+            tier = user.subscription_tier or "demo"
             expires_at = user.subscription_expires_at
             
             # Перевірка на прострочення підписки
@@ -50,7 +50,8 @@ class SubscriptionService:
             "sub_count": sub_count,
             "limit": limit,
             "can_add": sub_count < limit,
-            "expires_at": expires_at.isoformat() if expires_at else None
+            "expires_at": expires_at.isoformat() if expires_at else None,
+            "is_active": user.is_active if user else True
         }
 
     @staticmethod
