@@ -255,66 +255,67 @@ async def get_my_channels(user_id: int, db: AsyncSession = Depends(get_db)):
     status = await subscription_service.get_user_status(user_id, db)
     user_limit = status["limit"]
 
-    # Канали відсортовані за алфавітом у запиті, але для лімітів 
-    # бекенд дайджесту використовує дату підписки. 
-    # Тут ми зробимо так само для консистентності.
-    from database.models import UserSubscription
-    stmt = (
-        select(Channel, UserSubscription.last_changed_at)
-        .join(UserSubscription, Channel.id == UserSubscription.channel_id)
-        .where(UserSubscription.user_id == user_id, Channel.is_active == True)
-        .order_by(UserSubscription.position.asc(), UserSubscription.created_at.asc())
-    )
-    result = await db.execute(stmt)
-    rows = result.all()
-    
-    from datetime import timezone
-    now = datetime.now(timezone.utc)
-    
-    channels = []
-    for idx, (ch, last_changed) in enumerate(rows):
-        # Пріоритетно використовуємо системний шлях через проксі
-        username_query = f"?username={ch.username}" if ch.username else ""
-        avatar = f"/api/v1/catalog/photo/{ch.telegram_id}{username_query}"
-        is_active_for_limit = idx < user_limit
+    try:
+        # Канали відсортовані за позицією
+        from database.models import UserSubscription
+        stmt = (
+            select(Channel, UserSubscription.last_changed_at)
+            .join(UserSubscription, Channel.id == UserSubscription.channel_id)
+            .where(UserSubscription.user_id == user_id, Channel.is_active == True)
+            .order_by(func.coalesce(UserSubscription.position, 999).asc(), UserSubscription.created_at.asc())
+        )
+        result = await db.execute(stmt)
+        rows = result.all()
         
-        # Вираховуємо час розморозки
-        can_unsubscribe_at = None
-        if last_changed:
-            # Завжди працюємо з UTC
-            lc_utc = last_changed.replace(tzinfo=timezone.utc) if not last_changed.tzinfo else last_changed
-            cooldown_end = lc_utc + timedelta(hours=24)
-            can_unsubscribe_at = cooldown_end.isoformat()
+        now = datetime.now(timezone.utc)
         
-        channels.append(ChannelCatalogItem(
-            id=ch.id,
-            username=ch.username,
-            title=ch.title,
-            category=ch.category,
-            partner_status=ch.partner_status,
-            posts_count_24h=ch.posts_count_24h,
-            is_core=ch.is_core,
-            avatar_url=avatar,
-            is_subscribed=True,
-            is_limit_active=is_active_for_limit,
-            can_unsubscribe_at=can_unsubscribe_at,
-            position=idx
-        ))
-    
-    # Додаємо порожні слоти (placeholders) до повного ліміту
-    current_count = len(channels)
-    if current_count < user_limit:
-        for i in range(current_count, user_limit):
+        channels = []
+        for idx, (ch, last_changed) in enumerate(rows):
+            # Пріоритетно використовуємо системний шлях через проксі
+            username_query = f"?username={ch.username}" if ch.username else ""
+            avatar = f"/api/v1/catalog/photo/{ch.telegram_id}{username_query}"
+            is_active_for_limit = idx < user_limit
+            
+            # Вираховуємо час розморозки
+            can_unsubscribe_at = None
+            if last_changed:
+                lc_utc = last_changed.replace(tzinfo=timezone.utc) if not last_changed.tzinfo else last_changed
+                cooldown_end = lc_utc + timedelta(hours=24)
+                can_unsubscribe_at = cooldown_end.isoformat()
+            
             channels.append(ChannelCatalogItem(
-                id=-1 - i,
-                title=f"Слот #{i+1} (Порожній)",
-                is_placeholder=True,
-                is_limit_active=True,
-                position=i,
-                is_core=False
+                id=ch.id,
+                username=ch.username,
+                title=ch.title,
+                category=ch.category,
+                partner_status=ch.partner_status,
+                posts_count_24h=ch.posts_count_24h,
+                is_core=ch.is_core,
+                avatar_url=avatar,
+                is_subscribed=True,
+                is_limit_active=is_active_for_limit,
+                can_unsubscribe_at=can_unsubscribe_at,
+                position=idx
             ))
+        
+        # Додаємо порожні слоти (placeholders) до повного ліміту
+        current_count = len(channels)
+        if current_count < user_limit:
+            for i in range(current_count, user_limit):
+                channels.append(ChannelCatalogItem(
+                    id=-1 - i,
+                    title=f"Слот #{i+1} (Порожній)",
+                    is_placeholder=True,
+                    is_limit_active=True,
+                    position=i,
+                    is_core=False
+                ))
 
-    return channels
+        return channels
+    except Exception as e:
+        logger.error(f"Error in get_my_channels for user {user_id}: {str(e)}", exc_info=True)
+        # Повертаємо хоча б щось, щоб фронтенд не падав повністю, або прокидаємо HTTPException
+        raise HTTPException(status_code=500, detail="Internal server error while loading your channels")
 
 class SubscribeRequest(BaseModel):
     user_id: int
@@ -330,69 +331,75 @@ async def subscribe(req: SubscribeRequest, db: AsyncSession = Depends(get_db)):
     Підписати користувача на канал.
     Sales Trigger: якщо ліміту немає — запис НЕ створюється, повертаємо 403.
     """
-    # 1. Перевірити чи існує канал
-    channel = await db.get(Channel, req.channel_id)
-    if not channel:
-        raise HTTPException(status_code=404, detail="Канал не знайдено")
-    
-    # 2. Отримуємо статус лімітів
-    status = await subscription_service.get_user_status(req.user_id, db)
-    
-    # 3. Перевірити чи вже підписаний
-    stmt = select(UserSubscription).where(
-        UserSubscription.user_id == req.user_id,
-        UserSubscription.channel_id == req.channel_id
-    )
-    res = await db.execute(stmt)
-    if res.scalar_one_or_none():
-        return {"status": "ok", "message": "Вже підписані"}
-
-    # 4. ЖОРСТКА ПЕРЕВІРКА ЛІМІТУ
-    if not status["can_add"]:
-        raise HTTPException(
-            status_code=403, 
-            detail=f"LIMIT_EXCEEDED|{status['limit']}" # Тригер для Mini App показати вікно оплати
+    try:
+        # 1. Перевірити чи існує канал
+        channel = await db.get(Channel, req.channel_id)
+        if not channel:
+            raise HTTPException(status_code=404, detail="Канал не знайдено")
+        
+        # 2. Отримуємо статус лімітів
+        status = await subscription_service.get_user_status(req.user_id, db)
+        
+        # 3. Перевірити чи вже підписаний
+        stmt = select(UserSubscription).where(
+            UserSubscription.user_id == req.user_id,
+            UserSubscription.channel_id == req.channel_id
         )
+        res = await db.execute(stmt)
+        if res.scalar_one_or_none():
+            return {"status": "ok", "message": "Вже підписані"}
 
-    # 5. Перевірка GLobal Cooldown (24г)
-    user = await db.get(User, req.user_id)
-    if not user:
-        # Безпечна ініціалізація нового користувача
-        user = User(
-            id=req.user_id,
-            subscription_tier="demo",
-            is_active=True
-        )
-        db.add(user)
-        await db.flush()
-
-    if user.last_config_change_at:
-        now = datetime.now(timezone.utc)
-        lc_utc = user.last_config_change_at.replace(tzinfo=timezone.utc) if not user.last_config_change_at.tzinfo else user.last_config_change_at
-        cooldown_end = lc_utc + timedelta(hours=24)
-        if now < cooldown_end:
-            remaining = cooldown_end - now
-            hours, remainder = divmod(int(remaining.total_seconds()), 3600)
-            minutes, _ = divmod(remainder, 60)
-            time_str = f"{hours}г {minutes}хв" if hours > 0 else f"{minutes}хв"
+        # 4. ЖОРСТКА ПЕРЕВІРКА ЛІМІТУ
+        if not status["can_add"]:
             raise HTTPException(
                 status_code=403, 
-                detail=f"Змінити конфігурацію можна раз на 24г. Залишилось: {time_str}"
+                detail=f"LIMIT_EXCEEDED|{status['limit']}" # Тригер для Mini App показати вікно оплати
             )
 
-    # 6. Оновлення таймера та додавання підписки
-    user.last_config_change_at = datetime.now(timezone.utc)
+        # 5. Перевірка GLobal Cooldown (24г)
+        user = await db.get(User, req.user_id)
+        if not user:
+            # Безпечна ініціалізація нового користувача
+            user = User(
+                id=req.user_id,
+                subscription_tier="demo",
+                is_active=True
+            )
+            db.add(user)
+            await db.flush()
 
-    pos_stmt = select(func.max(UserSubscription.position)).where(UserSubscription.user_id == req.user_id)
-    pos_res = await db.execute(pos_stmt)
-    max_pos = pos_res.scalar()
-    next_pos = (max_pos + 1) if max_pos is not None else 0
+        if user.last_config_change_at:
+            now = datetime.now(timezone.utc)
+            lc_utc = user.last_config_change_at.replace(tzinfo=timezone.utc) if not user.last_config_change_at.tzinfo else user.last_config_change_at
+            cooldown_end = lc_utc + timedelta(hours=24)
+            if now < cooldown_end:
+                remaining = cooldown_end - now
+                hours, remainder = divmod(int(remaining.total_seconds()), 3600)
+                minutes, _ = divmod(remainder, 60)
+                time_str = f"{hours}г {minutes}хв" if hours > 0 else f"{minutes}хв"
+                raise HTTPException(
+                    status_code=403, 
+                    detail=f"Змінити конфігурацію можна раз на 24г. Залишилось: {time_str}"
+                )
 
-    new_sub = UserSubscription(user_id=req.user_id, channel_id=req.channel_id, position=next_pos)
-    db.add(new_sub)
-    await db.commit()
+        # 6. Оновлення таймера та додавання підписки
+        user.last_config_change_at = datetime.now(timezone.utc)
 
-    return {"status": "ok", "message": "Успішно підписано"}
+        pos_stmt = select(func.max(UserSubscription.position)).where(UserSubscription.user_id == req.user_id)
+        pos_res = await db.execute(pos_stmt)
+        max_pos = pos_res.scalar()
+        next_pos = (max_pos + 1) if max_pos is not None else 0
+
+        new_sub = UserSubscription(user_id=req.user_id, channel_id=req.channel_id, position=next_pos)
+        db.add(new_sub)
+        await db.commit()
+
+        return {"status": "ok", "message": "Успішно підписано"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in subscribe for user {req.user_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error during subscription")
 
 @router.post("/reorder")
 async def reorder_channels(req: ReorderRequest, db: AsyncSession = Depends(get_db)):
