@@ -218,6 +218,28 @@ export const CatalogPage: React.FC = () => {
                         </>
                     ) : (
                         <div className="space-y-4">
+                            {/* My Channels Shortcut in Popular View */}
+                            <motion.div
+                                variants={item}
+                                whileHover={{ scale: 1.01 }}
+                                whileTap={{ scale: 0.99 }}
+                                onClick={() => navigate('/catalog/my')}
+                                className="group relative p-5 bg-primary/10 backdrop-blur-xl border border-primary/30 rounded-2xl cursor-pointer hover:border-primary transition-all shadow-sm"
+                            >
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-4">
+                                        <div className="p-3 bg-primary/20 rounded-xl group-hover:bg-primary/30 transition-colors">
+                                            <Bookmark className="w-6 h-6 text-primary" />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-semibold text-lg">Мої канали</h3>
+                                            <p className="text-sm text-text-muted">Канали, на які ви підписані</p>
+                                        </div>
+                                    </div>
+                                    <ChevronRight className="w-5 h-5 text-text-muted group-hover:text-primary transform group-hover:translate-x-1 transition-all" />
+                                </div>
+                            </motion.div>
+
                             {isLoading && channels.length === 0 ? (
                                 <div className="flex justify-center py-12">
                                     <Loader2 className="w-8 h-8 animate-spin text-primary" />
