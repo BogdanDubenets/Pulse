@@ -42,6 +42,12 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     subscription_tier: Mapped[str] = mapped_column(String, default="demo") # demo, basic, standard, premium
     subscription_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    
+    # Affiliate Program
+    referrer_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True)
+    affiliate_earned_stars: Mapped[float] = mapped_column(Float, default=0.0)
+    referrals_count: Mapped[int] = mapped_column(Integer, default=0)
+    
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 class Story(Base):

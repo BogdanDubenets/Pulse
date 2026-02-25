@@ -15,7 +15,11 @@ import {
     Star,
     Crown,
     Clock,
-    UserCog
+    UserCog,
+    Users,
+    Share2,
+    Copy,
+    Gift
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 
@@ -32,12 +36,14 @@ export const CabinetPage: React.FC = () => {
         fetchAuctions,
         placeBid,
         buyPremium,
-        verifyPin
+        verifyPin,
+        affiliateStats,
+        fetchAffiliateStats
     } = useCatalogStore();
 
     const [auctions, setAuctions] = useState<any[]>([]);
     const [selectedChannel, setSelectedChannel] = useState<any>(null);
-    const [activeTab, setActiveTab] = useState<'auctions' | 'promote'>('auctions');
+    const [activeTab, setActiveTab] = useState<'auctions' | 'promote' | 'affiliate'>('auctions');
     const [isProcessing, setIsProcessing] = useState(false);
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
@@ -48,6 +54,7 @@ export const CabinetPage: React.FC = () => {
     useEffect(() => {
         fetchMyChannels(userId);
         loadAuctions();
+        fetchAffiliateStats(userId);
 
         // Обробка вхідного стану для перемикання табів та скролу
         const state = location.state as any;
@@ -110,6 +117,14 @@ export const CabinetPage: React.FC = () => {
         setIsProcessing(false);
     };
 
+    const handleCopyLink = () => {
+        if (affiliateStats?.referral_link) {
+            navigator.clipboard.writeText(affiliateStats.referral_link);
+            setFeedback({ type: 'success', message: 'Посилання скопійовано!' });
+            (window.Telegram?.WebApp as any).HapticFeedback.notificationOccurred('success');
+        }
+    };
+
     return (
         <Layout>
             <div className="pb-24 space-y-6 p-4">
@@ -155,8 +170,8 @@ export const CabinetPage: React.FC = () => {
                                 key={ch.id}
                                 onClick={() => setSelectedChannel(ch)}
                                 className={`flex - shrink - 0 w - 48 p - 4 rounded - 2xl border transition - all text - left relative overflow - hidden ${selectedChannel?.id === ch.id
-                                        ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
-                                        : 'border-white/5 bg-surface/40'
+                                    ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                                    : 'border-white/5 bg-surface/40'
                                     } `}
                             >
                                 <div className="flex items-center space-x-3 relative z-10">
@@ -180,21 +195,27 @@ export const CabinetPage: React.FC = () => {
                     </div>
                 </section>
 
-                {/* Section 2: Tiers */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-2">
                     <button
                         onClick={() => setActiveTab('auctions')}
-                        className={`py - 3 rounded - xl font - bold transition - all border ${activeTab === 'auctions' ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20' : 'bg-surface/40 border-border text-text-muted'
+                        className={`py - 3 px - 1 rounded - xl font - bold transition - all border text - xs ${activeTab === 'auctions' ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20' : 'bg-surface/40 border-border text-text-muted'
                             } `}
                     >
-                        Аукціони (Top-1)
+                        Аукціони
                     </button>
                     <button
                         onClick={() => setActiveTab('promote')}
-                        className={`py - 3 rounded - xl font - bold transition - all border ${activeTab === 'promote' ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20' : 'bg-surface/40 border-border text-text-muted'
+                        className={`py - 3 px - 1 rounded - xl font - bold transition - all border text - xs ${activeTab === 'promote' ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20' : 'bg-surface/40 border-border text-text-muted'
                             } `}
                     >
-                        Постійні слоти
+                        Слоти
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('affiliate')}
+                        className={`py - 3 px - 1 rounded - xl font - bold transition - all border text - xs ${activeTab === 'affiliate' ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20' : 'bg-surface/40 border-border text-text-muted'
+                            } `}
+                    >
+                        Партнерка
                     </button>
                 </div>
 
@@ -244,7 +265,7 @@ export const CabinetPage: React.FC = () => {
                                 </div>
                             ))}
                         </motion.div>
-                    ) : (
+                    ) : activeTab === 'promote' ? (
                         <motion.div
                             key="promote"
                             initial={{ opacity: 0, x: 10 }}
@@ -299,6 +320,93 @@ export const CabinetPage: React.FC = () => {
                                             <ArrowRight size={18} />
                                         </>}
                                     </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    ) : (
+                        <motion.div
+                            key="affiliate"
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="space-y-6"
+                        >
+                            <div className="p-6 bg-gradient-to-br from-primary/20 to-accent/10 border border-primary/20 rounded-[2.5rem] relative overflow-hidden">
+                                <div className="absolute top-0 right-0 p-6 opacity-10">
+                                    <Gift size={80} className="text-primary rotate-12" />
+                                </div>
+
+                                <div className="relative z-10 space-y-6">
+                                    <div className="space-y-1">
+                                        <h3 className="text-2xl font-black">Заробляй Stars</h3>
+                                        <p className="text-sm text-text-secondary font-medium italic">Отримуй {affiliateStats?.commission_percent || 10}% від кожної оплати запрошених друзів</p>
+                                        <div className="mt-2 p-2 bg-primary/10 border border-primary/20 rounded-xl">
+                                            <p className="text-[10px] text-primary font-bold leading-tight">
+                                                🚀 Ми підтримуємо офіційну партнерку Telegram! Виплати приходять миттєво на ваш баланс Stars.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="p-4 bg-white/5 rounded-3xl border border-white/10 backdrop-blur-md">
+                                            <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-1">Зароблено</p>
+                                            <div className="flex items-center gap-1.5">
+                                                <Star className="w-4 h-4 text-primary fill-current" />
+                                                <span className="text-xl font-black">{Math.floor(affiliateStats?.earned_stars || 0)}</span>
+                                            </div>
+                                        </div>
+                                        <div className="p-4 bg-white/5 rounded-3xl border border-white/10 backdrop-blur-md">
+                                            <p className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1">Друзі</p>
+                                            <div className="flex items-center gap-1.5">
+                                                <Users className="w-4 h-4 text-secondary" />
+                                                <span className="text-xl font-black">{affiliateStats?.referrals_count || 0}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <p className="text-xs font-bold text-text-muted px-1">Твоє реферальне посилання:</p>
+                                        <div className="flex items-center gap-2 p-2 pl-4 bg-surface/80 border border-border rounded-2xl">
+                                            <span className="text-[10px] font-mono truncate text-text-muted flex-1">
+                                                {affiliateStats?.referral_link || 'Завантаження...'}
+                                            </span>
+                                            <button
+                                                onClick={handleCopyLink}
+                                                className="p-3 bg-primary text-white rounded-xl active:scale-90 transition-transform"
+                                            >
+                                                <Copy size={16} />
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        onClick={() => (window.Telegram?.WebApp as any).openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(affiliateStats?.referral_link || '')}&text=${encodeURIComponent('🔥 Pulse — найкращий агрегатор новин України! Приєднуйся та будь у курсі подій.')}`)}
+                                        className="w-full py-4 bg-white text-background font-black rounded-2xl flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all"
+                                    >
+                                        <Share2 size={20} />
+                                        <span>Запросити друзів</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="px-2 space-y-4">
+                                <h4 className="text-xs font-black text-text-muted uppercase tracking-[0.2em]">Як це працює?</h4>
+                                <div className="space-y-4">
+                                    {[
+                                        { icon: <Share2 className="text-primary" />, title: 'Поділись посиланням', desc: 'Надішли своє посилання друзям або розмісти в соцмережах' },
+                                        { icon: <Users className="text-secondary" />, title: 'Друзі реєструються', desc: 'Вони стають твоїми рефералами назавжди' },
+                                        { icon: <Star className="text-accent fill-current" />, title: 'Отримуй бонуси', desc: 'За кожну куплену ними підписку ти отримуєш Stars на свій баланс' },
+                                    ].map((step, i) => (
+                                        <div key={i} className="flex gap-4 items-start">
+                                            <div className="p-3 bg-surface/50 border border-border rounded-2xl">
+                                                {step.icon}
+                                            </div>
+                                            <div className="space-y-0.5">
+                                                <p className="font-bold text-sm">{step.title}</p>
+                                                <p className="text-xs text-text-muted leading-relaxed">{step.desc}</p>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </motion.div>

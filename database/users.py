@@ -5,20 +5,24 @@ from database.models import User
 from loguru import logger
 from datetime import datetime, timezone
 
-async def upsert_user(user_id: int, first_name: str = None, username: str = None, language_code: str = "uk"):
+async def upsert_user(user_id: int, first_name: str = None, username: str = None, language_code: str = "uk", referrer_id: int = None):
     """
     Створює або оновлює дані користувача в базі даних.
     """
     try:
         async with AsyncSessionLocal() as session:
             # Використовуємо ON CONFLICT для PostgreSQL для атомарного upsert
-            stmt = insert(User).values(
-                id=user_id,
-                first_name=first_name,
-                username=username,
-                language_code=language_code,
-                created_at=datetime.now(timezone.utc)
-            ).on_conflict_do_update(
+            values = {
+                "id": user_id,
+                "first_name": first_name,
+                "username": username,
+                "language_code": language_code,
+                "created_at": datetime.now(timezone.utc)
+            }
+            if referrer_id:
+                values["referrer_id"] = referrer_id
+                
+            stmt = insert(User).values(**values).on_conflict_do_update(
                 index_elements=[User.id],
                 set_={
                     "first_name": first_name,
