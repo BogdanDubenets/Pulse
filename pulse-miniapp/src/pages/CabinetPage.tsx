@@ -46,6 +46,7 @@ export const CabinetPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'auctions' | 'promote' | 'affiliate'>('affiliate');
     const [isProcessing, setIsProcessing] = useState(false);
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+    const [imgErrors, setImgErrors] = useState<Record<number, boolean>>({});
 
     const userId = getUserId();
 
@@ -176,8 +177,14 @@ export const CabinetPage: React.FC = () => {
                             >
                                 <div className="flex items-center space-x-3 relative z-10">
                                     <div className="w-10 h-10 rounded-xl bg-surface-secondary border border-border flex items-center justify-center overflow-hidden font-bold text-primary">
-                                        {ch.avatar_url ? (
-                                            <img src={`${API_ORIGIN}${ch.avatar_url}`} alt={ch.title} className="w-full h-full object-cover" />
+                                        {ch.avatar_url && !imgErrors[ch.id] ? (
+                                            <img
+                                                src={ch.avatar_url.startsWith('http') ? ch.avatar_url : `${API_ORIGIN}${ch.avatar_url}`}
+                                                alt={ch.title}
+                                                className="w-full h-full object-cover"
+                                                loading="lazy"
+                                                onError={() => setImgErrors(prev => ({ ...prev, [ch.id]: true }))}
+                                            />
                                         ) : (
                                             ch.title[0]
                                         )}

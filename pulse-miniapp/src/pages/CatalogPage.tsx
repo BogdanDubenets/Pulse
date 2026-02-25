@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Layout } from '../components/Layout';
@@ -63,6 +63,7 @@ export const CatalogPage: React.FC = () => {
     const { categories, channels, isLoading, error, fetchCategories, fetchChannels, subscribeToChannel, unsubscribeFromChannel } = useCatalogStore();
     const [viewMode, setViewMode] = React.useState<'categories' | 'popular'>('categories');
     const [submittingIds, setSubmittingIds] = React.useState<Record<number, boolean>>({});
+    const [imgErrors, setImgErrors] = useState<Record<number, boolean>>({});
 
     const userId = getUserId();
 
@@ -228,14 +229,16 @@ export const CatalogPage: React.FC = () => {
                                     className="bg-surface/50 backdrop-blur-xl border border-border rounded-2xl p-4 flex items-center gap-4"
                                 >
                                     <div className="w-14 h-14 rounded-xl bg-surface-secondary overflow-hidden flex-shrink-0 border border-border">
-                                        {ch.avatar_url ? (
+                                        {ch.avatar_url && !imgErrors[ch.id] ? (
                                             <img
                                                 src={ch.avatar_url.startsWith('http') ? ch.avatar_url : `${API_ORIGIN}${ch.avatar_url}`}
                                                 alt={ch.title}
                                                 className="w-full h-full object-cover"
+                                                loading="lazy"
+                                                onError={() => setImgErrors(prev => ({ ...prev, [ch.id]: true }))}
                                             />
                                         ) : (
-                                            <div className="w-full h-full flex items-center justify-center font-bold text-lg text-primary bg-primary/10 text-primary">
+                                            <div className="w-full h-full flex items-center justify-center font-bold text-lg text-primary bg-primary/10">
                                                 {ch.title.charAt(0)}
                                             </div>
                                         )}
