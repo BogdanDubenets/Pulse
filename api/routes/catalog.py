@@ -252,7 +252,7 @@ async def get_channels(
 async def get_my_channels(user_id: int, db: AsyncSession = Depends(get_db)):
     """Отримати канали, на які підписаний користувач"""
     # Отримуємо ліміт користувача
-    status = await get_user_status(user_id, db)
+    status = await subscription_service.get_user_status(user_id, db)
     user_limit = status["limit"]
 
     # Канали відсортовані за алфавітом у запиті, але для лімітів 

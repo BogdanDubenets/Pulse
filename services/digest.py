@@ -31,25 +31,16 @@ async def get_user_digest_data(
         from database.models import User, UserSubscription
         from datetime import timezone
 
-        # 1. Отримуємо статус користувача та його ліміт
-        user_res = await session.execute(select(User).where(User.id == user_id))
-        user = user_res.scalar_one_or_none()
-        
-        # Визначаємо Tier та перевіряємо термін дії підписки
-        tier = user.subscription_tier if user else "demo"
-        if user and user.subscription_expires_at:
-            # Якщо підписка прострочена - скидаємо до demo
-            if user.subscription_expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
-                tier = "demo"
-        
-        limits = {"demo": 3, "basic": 10, "standard": 25, "premium": 999}
-        user_limit = limits.get(tier, 3)
+        # 1. Отримуємо статус користувача та його ліміт через сервіс
+        from services.subscription_service import subscription_service
+        status = await subscription_service.get_user_status(user_id, session)
+        user_limit = status["limit"]
 
-        # 2. Отримуємо ID каналів користувача, обмежені лімітом (за датою додавання)
+        # 2. Отримуємо ID каналів користувача, обмежені лімітом (за датою додавання та позицією)
         stmt_subs = (
             select(UserSubscription.channel_id)
             .where(UserSubscription.user_id == user_id)
-            .order_by(UserSubscription.created_at.asc())
+            .order_by(UserSubscription.position.asc(), UserSubscription.created_at.asc())
             .limit(user_limit)
         )
         result_subs = await session.execute(stmt_subs)
