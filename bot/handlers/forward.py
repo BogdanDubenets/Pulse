@@ -5,7 +5,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from database.connection import AsyncSessionLocal
 from database.models import Channel, UserSubscription
-from sqlalchemy import select
+from sqlalchemy import select, func
 from loguru import logger
 from bot.utils import schedule_delete
 from database.users import upsert_user
@@ -82,9 +82,16 @@ async def handle_forward(message: Message):
                     )
                     return
 
+                # Визначаємо наступну позицію (черга додавання)
+                pos_stmt = select(func.max(UserSubscription.position)).where(UserSubscription.user_id == message.from_user.id)
+                pos_res = await session.execute(pos_stmt)
+                max_pos = pos_res.scalar()
+                next_pos = (max_pos + 1) if max_pos is not None else 0
+
                 session.add(UserSubscription(
                     user_id=message.from_user.id,
-                    channel_id=channel.id
+                    channel_id=channel.id,
+                    position=next_pos
                 ))
                 await session.commit()
                 status = "\n\n✅ Підписано! Тепер я стежу за цим каналом."
@@ -185,9 +192,16 @@ async def handle_channel_link(message: Message):
                     )
                     return
 
+                # Визначаємо наступну позицію (черга додавання)
+                pos_stmt = select(func.max(UserSubscription.position)).where(UserSubscription.user_id == message.from_user.id)
+                pos_res = await session.execute(pos_stmt)
+                max_pos = pos_res.scalar()
+                next_pos = (max_pos + 1) if max_pos is not None else 0
+
                 session.add(UserSubscription(
                     user_id=message.from_user.id,
-                    channel_id=channel.id
+                    channel_id=channel.id,
+                    position=next_pos
                 ))
                 await session.commit()
                 status = "✅ Підписано!"
