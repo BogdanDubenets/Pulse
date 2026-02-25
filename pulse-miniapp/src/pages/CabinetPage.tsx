@@ -43,7 +43,7 @@ export const CabinetPage: React.FC = () => {
 
     const [auctions, setAuctions] = useState<any[]>([]);
     const [selectedChannel, setSelectedChannel] = useState<any>(null);
-    const [activeTab, setActiveTab] = useState<'auctions' | 'promote' | 'affiliate'>('auctions');
+    const [activeTab, setActiveTab] = useState<'auctions' | 'promote' | 'affiliate'>('affiliate');
     const [isProcessing, setIsProcessing] = useState(false);
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
@@ -63,7 +63,7 @@ export const CabinetPage: React.FC = () => {
 
             if (state.section) {
                 setTimeout(() => {
-                    const el = document.getElementById(`section - ${state.section} `);
+                    const el = document.getElementById(`section-${state.section}`);
                     if (el) el.scrollIntoView({ behavior: 'smooth' });
                 }, 300);
             }
@@ -148,8 +148,8 @@ export const CabinetPage: React.FC = () => {
                             initial={{ opacity: 0, y: -20 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className={`p - 4 rounded - 2xl flex items - center space - x - 3 shadow - lg border ${feedback.type === 'success' ? 'bg-success/10 border-success/20 text-success' : 'bg-error/10 border-error/20 text-error'
-                                } `}
+                            className={`p-4 rounded-2xl flex items-center space-x-3 shadow-lg border ${feedback.type === 'success' ? 'bg-success/10 border-success/20 text-success' : 'bg-error/10 border-error/20 text-error'
+                                }`}
                         >
                             {feedback.type === 'success' ? <CheckCircle2 className="w-5 h-5 flex-shrink-0" /> : <AlertCircle className="w-5 h-5 flex-shrink-0" />}
                             <span className="text-sm font-bold">{feedback.message}</span>
@@ -169,24 +169,26 @@ export const CabinetPage: React.FC = () => {
                             <button
                                 key={ch.id}
                                 onClick={() => setSelectedChannel(ch)}
-                                className={`flex - shrink - 0 w - 48 p - 4 rounded - 2xl border transition - all text - left relative overflow - hidden ${selectedChannel?.id === ch.id
+                                className={`flex-shrink-0 w-48 p-4 rounded-2xl border transition-all text-left relative overflow-hidden ${selectedChannel?.id === ch.id
                                     ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
                                     : 'border-white/5 bg-surface/40'
-                                    } `}
+                                    }`}
                             >
                                 <div className="flex items-center space-x-3 relative z-10">
                                     <div className="w-10 h-10 rounded-xl bg-surface-secondary border border-border flex items-center justify-center overflow-hidden font-bold text-primary">
                                         {ch.avatar_url ? (
-                                            <img src={`${API_ORIGIN}${ch.avatar_url} `} alt={ch.title} className="w-full h-full object-cover" />
-                                        ) : ch.title.charAt(0)}
+                                            <img src={`${API_ORIGIN}${ch.avatar_url}`} alt={ch.title} className="w-full h-full object-cover" />
+                                        ) : (
+                                            ch.title[0]
+                                        )}
                                     </div>
                                     <div className="min-w-0">
-                                        <p className="font-bold text-sm truncate">{ch.title}</p>
-                                        <p className="text-[10px] text-text-muted truncate">{ch.category}</p>
+                                        <div className="text-sm font-bold truncate">{ch.title}</div>
+                                        <div className="text-[10px] text-text-muted">@{ch.username}</div>
                                     </div>
                                 </div>
                                 {selectedChannel?.id === ch.id && (
-                                    <div className="absolute top-2 right-2">
+                                    <div className="absolute top-2 right-2 z-20">
                                         <CheckCircle2 size={14} className="text-primary" />
                                     </div>
                                 )}
@@ -197,25 +199,25 @@ export const CabinetPage: React.FC = () => {
 
                 <div className="grid grid-cols-3 gap-2">
                     <button
+                        onClick={() => setActiveTab('affiliate')}
+                        className={`py-3 px-1 rounded-xl font-bold transition-all border text-xs ${activeTab === 'affiliate' ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20' : 'bg-surface/40 border-border text-text-muted'
+                            }`}
+                    >
+                        Партнерка
+                    </button>
+                    <button
                         onClick={() => setActiveTab('auctions')}
-                        className={`py - 3 px - 1 rounded - xl font - bold transition - all border text - xs ${activeTab === 'auctions' ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20' : 'bg-surface/40 border-border text-text-muted'
-                            } `}
+                        className={`py-3 px-1 rounded-xl font-bold transition-all border text-xs ${activeTab === 'auctions' ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20' : 'bg-surface/40 border-border text-text-muted'
+                            }`}
                     >
                         Аукціони
                     </button>
                     <button
                         onClick={() => setActiveTab('promote')}
-                        className={`py - 3 px - 1 rounded - xl font - bold transition - all border text - xs ${activeTab === 'promote' ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20' : 'bg-surface/40 border-border text-text-muted'
-                            } `}
+                        className={`py-3 px-1 rounded-xl font-bold transition-all border text-xs ${activeTab === 'promote' ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20' : 'bg-surface/40 border-border text-text-muted'
+                            }`}
                     >
                         Слоти
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('affiliate')}
-                        className={`py - 3 px - 1 rounded - xl font - bold transition - all border text - xs ${activeTab === 'affiliate' ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20' : 'bg-surface/40 border-border text-text-muted'
-                            } `}
-                    >
-                        Партнерка
                     </button>
                 </div>
 
