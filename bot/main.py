@@ -51,7 +51,16 @@ async def main():
             menu_button=MenuButtonWebApp(text="Pulse 📱", web_app=WebAppInfo(url=config.WEBAPP_URL))
         )
     
-    logger.info("Bot commands and menu button set.")
+    # Налаштування описів бота
+    await bot.set_my_description(
+        "Pulse 💓 — твій інтелектуальний фільтр новин.\n\n"
+        "Я перетворюю хаос із сотень каналів на лаконічний AI-дайджест. Економ час для головного, а новини залиш мені."
+    )
+    await bot.set_my_short_description(
+        "Pulse 💓 — AI-дайджест твоїх новин. Економ час, читай головне!"
+    )
+
+    logger.info("Bot commands, descriptions and menu button set.")
 
     try:
         # Пропускаємо старі накопичені запити при запуску
