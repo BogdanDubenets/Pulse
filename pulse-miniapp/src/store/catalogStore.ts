@@ -28,7 +28,7 @@ interface CatalogState {
     error: string | null;
 
     fetchCategories: () => Promise<void>;
-    fetchChannels: (category?: string) => Promise<void>;
+    fetchChannels: (category?: string, sort?: string) => Promise<void>;
     fetchMyChannels: (userId: number) => Promise<void>;
     fetchUserStatus: (userId: number) => Promise<void>;
     fetchAffiliateStats: (userId: number) => Promise<void>;
@@ -112,12 +112,13 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
         }
     },
 
-    fetchChannels: async (category?: string) => {
+    fetchChannels: async (category?: string, sort?: string) => {
         set({ channels: [], isLoading: true, error: null });
         try {
             const userId = getUserId();
             const params = new URLSearchParams();
             if (category) params.append('category', category);
+            if (sort) params.append('sort', sort);
             if (userId) params.append('user_id', userId.toString());
 
             const response = await apiClient.get<ChannelCatalogItem[]>(`/catalog/channels?${params.toString()}`);

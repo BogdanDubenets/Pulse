@@ -98,6 +98,7 @@ export interface ChannelCatalogItem {
     can_unsubscribe_at?: string;
     is_placeholder?: boolean;
     position?: number;
+    subs_total?: number;
 }
 
 export interface User {

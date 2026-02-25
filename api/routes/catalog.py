@@ -89,58 +89,77 @@ async def get_categories(db: AsyncSession = Depends(get_db)):
 async def get_channels(
     category: Optional[str] = None, 
     user_id: Optional[int] = None,
+    sort: Optional[str] = None,
     db: AsyncSession = Depends(get_db)
 ):
     """
     Отримати канали для каталогу з сортуванням:
-    1. Auction Winner (Top-1)
-    2. Premium Carousel (Top-2)
-    3. Pinned Carousel (Top-3)
-    4. Organic (за активністю 24г)
+    1. Якщо sort=="popularity" - за кількістю підписок (Top-50)
+    2. Інакше (за категорією): Auction -> Premium -> Pinned -> Organic
     """
     now = datetime.now(timezone.utc)
     
-    # 1. Отримуємо канали за категорією
-    stmt = select(Channel).where(Channel.is_active == True)
-    if category:
-        stmt = stmt.where(Channel.category == category)
-    
-    result = await db.execute(stmt)
-    channels_db = result.scalars().all()
-    
-    # 2. Отримуємо переможця аукціону для категорії
-    auction_channel_id = None
-    if category:
-        auction_stmt = select(Auction.channel_id).where(Auction.category == category, Auction.ends_at > now).order_by(desc(Auction.current_bid))
-        auction_res = await db.execute(auction_stmt)
-        auction_channel_id = auction_res.scalar()
+    if sort == "popularity":
+        # Спеціальна логіка для топ-популярних каналів по всій системі
+        # Підраховуємо кількість підписок для кожного активного каналу
+        stmt = (
+            select(
+                Channel, 
+                func.count(UserSubscription.id).label("subs_total")
+            )
+            .outerjoin(UserSubscription, Channel.id == UserSubscription.channel_id)
+            .where(Channel.is_active == True)
+            .group_by(Channel.id)
+            .order_by(desc("subs_total"), Channel.posts_count_24h.desc())
+            .limit(50)
+        )
+        result = await db.execute(stmt)
+        channels_db = [row[0] for row in result.all()]
+        auction_channel_id = None # В глобальному топі аукціони категорій не показуємо або ігноруємо
+    else:
+        # 1. Отримуємо канали за категорією (стара логіка)
+        stmt = select(Channel).where(Channel.is_active == True)
+        if category:
+            stmt = stmt.where(Channel.category == category)
+        
+        result = await db.execute(stmt)
+        channels_db = result.scalars().all()
+        
+        # 2. Отримуємо переможця аукціону для категорії
+        auction_channel_id = None
+        if category:
+            auction_stmt = select(Auction.channel_id).where(Auction.category == category, Auction.ends_at > now).order_by(desc(Auction.current_bid))
+            auction_res = await db.execute(auction_stmt)
+            auction_channel_id = auction_res.scalar()
 
-    # 3. Розподіляємо канали по тірах
-    auction_winners = []
-    premium_channels = []
-    pinned_channels = []
-    organic_channels = []
+    # 3. Розподіляємо канали по тірах (якщо не сортування за популярністю)
+    combined_channels = []
+    if sort == "popularity":
+        combined_channels = channels_db
+    else:
+        auction_winners = []
+        premium_channels = []
+        pinned_channels = []
+        organic_channels = []
 
-    for ch in channels_db:
-        # Перевірка терміну дії статусу
-        status = ch.partner_status
-        if ch.partner_expires_at and ch.partner_expires_at.replace(tzinfo=timezone.utc) < now:
-            status = "organic"
+        for ch in channels_db:
+            # Перевірка терміну дії статусу
+            status = ch.partner_status
+            if ch.partner_expires_at and ch.partner_expires_at.replace(tzinfo=timezone.utc) < now:
+                status = "organic"
 
-        if ch.id == auction_channel_id:
-            auction_winners.append(ch)
-        elif status == "premium":
-            premium_channels.append(ch)
-        elif status == "pinned":
-            pinned_channels.append(ch)
-        else:
-            organic_channels.append(ch)
+            if ch.id == auction_channel_id:
+                auction_winners.append(ch)
+            elif status == "premium":
+                premium_channels.append(ch)
+            elif status == "pinned":
+                pinned_channels.append(ch)
+            else:
+                organic_channels.append(ch)
 
-    # 4. Сортування органіки та каруселей
-    organic_channels.sort(key=lambda x: x.posts_count_24h, reverse=True)
-    # Каруселі можна додатково шафлити або сортувати
-    
-    combined_channels = auction_winners + premium_channels + pinned_channels + organic_channels
+        # 4. Сортування органіки
+        organic_channels.sort(key=lambda x: x.posts_count_24h, reverse=True)
+        combined_channels = auction_winners + premium_channels + pinned_channels + organic_channels
     
     # Отримуємо підписки користувача, якщо user_id передано
     user_subs = set()
