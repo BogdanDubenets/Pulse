@@ -18,8 +18,7 @@ import {
     Bookmark,
     Landmark,
     ShieldAlert,
-    Theater,
-    UserCog
+    Theater
 } from 'lucide-react';
 
 const categoryIcons: Record<string, any> = {
