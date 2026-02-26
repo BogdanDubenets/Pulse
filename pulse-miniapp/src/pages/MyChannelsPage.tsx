@@ -273,8 +273,7 @@ export const MyChannelsPage: React.FC = () => {
         fetchUserStatus,
         addCustomChannel,
         unsubscribeFromChannel,
-        reorderChannels,
-        createInvoice
+        reorderChannels
     } = useCatalogStore();
 
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
