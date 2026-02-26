@@ -356,6 +356,13 @@ async def subscribe(req: SubscribeRequest, db: AsyncSession = Depends(get_db)):
                 detail=f"LIMIT_EXCEEDED|{status['limit']}" # Тригер для Mini App показати вікно оплати
             )
 
+        # 5. Отримання користувача для оновлення таймера
+        user = await db.get(User, req.user_id)
+        if not user:
+            user = User(id=req.user_id)
+            db.add(user)
+            await db.flush()
+
         # 6. Оновлення таймера (тільки при успішному додаванні) та додавання підписки
         user.last_config_change_at = datetime.now(timezone.utc)
 
@@ -602,7 +609,8 @@ async def add_custom_channel(req: CustomChannelRequest, db: AsyncSession = Depen
     if res.scalar_one_or_none():
         return {"status": "ok", "message": "Вже підписані"}
 
-    # 7. Оновлення таймера та додавання підписки
+    # 7. Отримання користувача для оновлення таймера
+    user = await db.get(User, req.user_id)
     if not user:
         # Безпечна ініціалізація
         user = User(
