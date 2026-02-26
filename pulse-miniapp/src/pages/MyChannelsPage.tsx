@@ -278,11 +278,9 @@ export const MyChannelsPage: React.FC = () => {
     } = useCatalogStore();
 
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    const { isPaywallOpen, setIsPaywallOpen, paywallReason } = useCatalogStore();
+    const { setIsPaywallOpen } = useCatalogStore();
     const [channelUrl, setChannelUrl] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isSubscribing, setIsSubscribing] = useState(false);
-    const [selectedTier, setSelectedTier] = useState('standard');
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
     const [imgErrors, setImgErrors] = useState<Record<number, boolean>>({});
     const [submittingIds, setSubmittingIds] = useState<Record<number, boolean>>({});
@@ -312,22 +310,6 @@ export const MyChannelsPage: React.FC = () => {
         setHasOrderChanged(false);
     }, [channels]);
 
-    const handleSubscribe = async () => {
-        setIsSubscribing(true);
-        const invoiceLink = await createInvoice(userId, selectedTier);
-
-        if (invoiceLink) {
-            (window.Telegram?.WebApp as any).openInvoice(invoiceLink, (status: string) => {
-                if (status === 'paid') {
-                    fetchUserStatus(userId);
-                    setIsPaywallOpen(false);
-                }
-                setIsSubscribing(false);
-            });
-        } else {
-            setIsSubscribing(false);
-        }
-    };
 
     const handleAddClick = () => {
         if (userStatus && !userStatus.can_add) {

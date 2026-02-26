@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, Star, Crown, Loader2, X } from 'lucide-react';
+import { Zap, Star, Crown, Loader2 } from 'lucide-react';
 import { useCatalogStore } from '../store/catalogStore';
 import { getUserId } from '../utils/telegram';
 
