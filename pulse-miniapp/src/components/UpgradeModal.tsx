@@ -50,6 +50,8 @@ export const UpgradeModal: React.FC = () => {
     const [isSubscribing, setIsSubscribing] = useState(false);
     const userId = getUserId();
 
+    console.log('[DEBUG] UpgradeModal render:', { isPaywallOpen, paywallReason, userId });
+
     const handleSubscribe = async () => {
         setIsSubscribing(true);
         try {

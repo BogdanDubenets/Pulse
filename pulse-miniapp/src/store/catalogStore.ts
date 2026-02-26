@@ -57,10 +57,13 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     isPaywallOpen: false,
     paywallReason: 'upsell',
 
-    setIsPaywallOpen: (open, reason) => set({ 
-        isPaywallOpen: open, 
-        paywallReason: reason || 'upsell' 
-    }),
+    setIsPaywallOpen: (open, reason) => {
+        console.log(`[DEBUG] setIsPaywallOpen called: open=${open}, reason=${reason}`);
+        set({
+            isPaywallOpen: open,
+            paywallReason: reason || 'upsell'
+        });
+    },
 
     fetchUserStatus: async (userId: number) => {
         try {
@@ -174,8 +177,10 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     },
 
     subscribeToChannel: async (userId: number, channelId: number) => {
+        console.log(`[DEBUG] subscribeToChannel: userId=${userId}, channelId=${channelId}`);
         try {
-            await apiClient.post('/catalog/subscribe', { user_id: userId, channel_id: channelId });
+            const response = await apiClient.post('/catalog/subscribe', { user_id: userId, channel_id: channelId });
+            console.log('[DEBUG] subscribeToChannel success:', response.data);
             // Оновлюємо статус локально для швидкості
             set(state => ({
                 channels: state.channels.map(ch =>
@@ -186,6 +191,7 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
             return { success: true };
         } catch (error: any) {
             const errorCode = error.response?.status;
+            console.warn('[DEBUG] subscribeToChannel error:', errorCode, error.response?.data);
             return { success: false, errorCode };
         }
     },
