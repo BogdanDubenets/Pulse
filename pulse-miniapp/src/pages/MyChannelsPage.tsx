@@ -16,7 +16,6 @@ import {
     Lock,
     CheckCircle2,
     AlertCircle,
-    Star,
     Crown,
     Trash2,
     LayoutGrid,
