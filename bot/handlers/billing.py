@@ -53,18 +53,25 @@ async def on_successful_payment(message: types.Message):
             
             # Логіка перерахунку (Proration)
             if current_expiry and current_expiry > now:
-                remaining_days = (current_expiry - now).days
-                if remaining_days > 0 and user.subscription_tier in prices:
-                    old_rate = prices[user.subscription_tier] / 30
-                    new_rate = prices[tier] / 30
+                # Рахуємо залишок у секундах для максимальної точності
+                remaining_seconds = (current_expiry - now).total_seconds()
+                
+                if remaining_seconds > 0 and user.subscription_tier in prices:
+                    old_daily_rate = prices[user.subscription_tier] / 30
+                    new_daily_rate = prices[tier] / 30
+                    
+                    # Перетворюємо залишок секунд у "зірковий еквівалент" і ділимо на новий тариф
+                    # (залишок_днів * стара_ціна) / нова_ціна
+                    bonus_days_float = ((remaining_seconds / 86400) * old_daily_rate) / new_daily_rate
                     
                     # Заокруглення вгору на користь користувача
                     import math
-                    bonus_days = math.ceil((remaining_days * old_rate) / new_rate)
+                    bonus_days = math.ceil(bonus_days_float)
                     
+                    remaining_days_display = math.ceil(remaining_seconds / 86400)
                     info_msg = (
                         f"📊 <b>Чесний перерахунок:</b>\n"
-                        f"Ваш залишок ({remaining_days} дн. {user.subscription_tier.capitalize()}) "
+                        f"Ваш залишок (~{remaining_days_display} дн. {user.subscription_tier.capitalize()}) "
                         f"конвертовано у <b>{bonus_days} бонусних днів</b> плану {tier.capitalize()}.\n\n"
                     )
 
