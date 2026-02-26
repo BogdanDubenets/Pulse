@@ -79,10 +79,21 @@ class ChannelMonitor:
             self.active_channels.clear()
             self.username_to_id.clear()
             
+            channels_to_scan = []
             for ch in channels:
                 self._add_to_cache(ch)
+                # Якщо канал активний для моніторингу, але ще не сканувався — плануємо сканування історії (24г)
+                if ch.last_scanned_at is None:
+                    channels_to_scan.append(ch)
                     
-            logger.info(f"Оновлено список каналів: {len(channels)} каналів (flood_wait: {self.flood_wait_count})")
+            logger.info(f"Оновлено список каналів: {len(channels)} каналів. З них нових для сканування: {len(channels_to_scan)}")
+            
+            # Запускаємо сканування для нових каналів (24 години)
+            for ch in channels_to_scan:
+                identifier = ch.username or ch.telegram_id
+                if identifier:
+                    logger.info(f"🚀 Авто-сканування історії за 24г для нового каналу: {ch.title}")
+                    asyncio.create_task(self._scan_channel(ch.id, identifier, hours=24))
         except Exception as e:
             logger.error(f"Помилка оновлення каналів: {e}")
 
