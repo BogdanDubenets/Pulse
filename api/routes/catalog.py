@@ -13,6 +13,7 @@ from config.settings import config
 import io
 import os
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -145,7 +146,6 @@ async def get_channels(
         if category:
             # Більш робастний парсинг: прибираємо всі символи до першої літери/цифри 
             # (емодзі зазвичай на початку)
-            import r re
             clean_cat = category
             match = re.search(r'[a-zA-Zа-яА-Я0-9іІїЇєЄ]', category)
             if match:
