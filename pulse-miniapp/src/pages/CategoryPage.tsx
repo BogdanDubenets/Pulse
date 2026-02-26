@@ -87,7 +87,7 @@ export const CategoryPage: React.FC = () => {
                                 <TrendingUp size={18} />
                             </button>
                             <button
-                                onClick={() => useCatalogStore.getState().setIsPaywallOpen(true, 'limit')}
+                                onClick={() => navigate('/catalog/my')}
                                 className="p-2 rounded-lg transition-all text-text-secondary hover:text-text-primary"
                                 title="Мої канали"
                             >
