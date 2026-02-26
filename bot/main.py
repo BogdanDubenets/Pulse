@@ -21,8 +21,9 @@ async def main():
     dp = Dispatcher()
 
     # Підключення роутерів
-    from bot.handlers import start, forward
+    from bot.handlers import start, forward, billing
     dp.include_router(start.router)
+    dp.include_router(billing.router)
     dp.include_router(forward.router)  # Останнім — бо ловить текстові повідомлення
     
     

@@ -10,7 +10,7 @@ SUBSCRIPTION_LIMITS = {
     "demo": 3,
     "basic": 6,
     "standard": 10,
-    "premium": 25
+    "premium": 15
 }
 
 class SubscriptionService:

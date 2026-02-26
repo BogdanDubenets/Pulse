@@ -116,17 +116,21 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     },
 
     fetchCategories: async () => {
+        console.log('[DEBUG] fetchCategories started');
         set({ isLoading: true, error: null });
         try {
             const response = await apiClient.get<CatalogCategory[]>('/catalog/categories');
+            console.log('[DEBUG] fetchCategories success:', response.data.length, 'categories');
             set({ categories: response.data, isLoading: false });
         } catch (error: any) {
-            console.error('Failed to fetch categories:', error);
-            set({ error: 'Помилка завантаження категорій', isLoading: false });
+            console.error('[DEBUG] fetchCategories failed:', error);
+            const status = error.response?.status;
+            set({ error: `Помилка завантаження категорій (${status || 'network error'})`, isLoading: false });
         }
     },
 
     fetchChannels: async (category?: string, sort?: string) => {
+        console.log(`[DEBUG] fetchChannels started: category=${category}, sort=${sort}`);
         set({ channels: [], isLoading: true, error: null });
         try {
             const userId = getUserId();
@@ -135,11 +139,15 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
             if (sort) params.append('sort', sort);
             if (userId) params.append('user_id', userId.toString());
 
-            const response = await apiClient.get<ChannelCatalogItem[]>(`/catalog/channels?${params.toString()}`);
+            const url = `/catalog/channels?${params.toString()}`;
+            console.log(`[DEBUG] fetchChannels requesting: ${url}`);
+            const response = await apiClient.get<ChannelCatalogItem[]>(url);
+            console.log(`[DEBUG] fetchChannels success: ${response.data.length} channels`);
             set({ channels: response.data, isLoading: false });
         } catch (error: any) {
-            console.error('Failed to fetch channels:', error);
-            set({ error: 'Помилка завантаження каналів', isLoading: false });
+            console.error('[DEBUG] fetchChannels failed:', error);
+            const status = error.response?.status;
+            set({ error: `Помилка завантаження каналів (${status || 'network error'})`, isLoading: false });
         }
     },
 

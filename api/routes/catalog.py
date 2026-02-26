@@ -108,6 +108,8 @@ async def get_channels(
     """
     now = datetime.now(timezone.utc)
     
+    logger.info(f"🔍 Catalog fetch: category={category}, user_id={user_id}, sort={sort}")
+    
     if sort == "popularity":
         # Спеціальна логіка для топ-популярних каналів по всій системі
         # Підраховуємо кількість підписок для кожного активного каналу
@@ -141,8 +143,16 @@ async def get_channels(
         )
         
         if category:
-            # Парсимо назву категорії (прибираємо емодзі якщо є)
-            clean_cat = category.split(" ", 1)[-1] if " " in category else category
+            # Більш робастний парсинг: прибираємо всі символи до першої літери/цифри 
+            # (емодзі зазвичай на початку)
+            import r re
+            clean_cat = category
+            match = re.search(r'[a-zA-Zа-яА-Я0-9іІїЇєЄ]', category)
+            if match:
+                clean_cat = category[match.start():].strip()
+            
+            logger.info(f"🧹 Cleaned category name: '{category}' -> '{clean_cat}'")
+            
             cat_stmt = select(Category.id).where(Category.name == clean_cat)
             cat_res = await db.execute(cat_stmt)
             cat_id = cat_res.scalar()
@@ -151,8 +161,10 @@ async def get_channels(
                 # JOIN з ChannelCategory для фільтрації та отримання активності
                 stmt = stmt.join(ChannelCategory, (Channel.id == ChannelCategory.channel_id) & (ChannelCategory.category_id == cat_id))
             else:
+                logger.warning(f"⚠️ Category '{clean_cat}' not found in DB, falling back to string match")
                 # Fallback на стару логіку за рядком, якщо категорія не в новій таблиці
-                stmt = stmt.where(Channel.category == category)
+                # Також пробуємо шукати за назвою БЕЗ емодзі у полі category каналу
+                stmt = stmt.where((Channel.category == category) | (Channel.category == clean_cat))
         else:
             # Якщо категорія не вказана, просто LEFT JOIN
             stmt = stmt.outerjoin(ChannelCategory, Channel.id == ChannelCategory.channel_id)

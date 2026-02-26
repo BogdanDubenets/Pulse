@@ -11,7 +11,24 @@ from typing import List, Optional
 
 from api.routes import catalog, billing, affiliate
 
+import logging
+import time
+from fastapi import Request
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 app = FastAPI(title="Pulse Mini App API", version="1.0.0")
+
+# Request logging middleware
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    duration = time.time() - start_time
+    logger.info(f"🚀 {request.method} {request.url.path} - {response.status_code} ({duration:.2f}s)")
+    return response
 
 # CORS config allowing Telegram WebApp access
 app.add_middleware(
