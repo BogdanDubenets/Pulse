@@ -26,6 +26,10 @@ interface CatalogState {
     affiliateStats: AffiliateStats | null;
     isLoading: boolean;
     error: string | null;
+    isPaywallOpen: boolean;
+    paywallReason: 'limit' | 'upsell';
+
+    setIsPaywallOpen: (open: boolean, reason?: 'limit' | 'upsell') => void;
 
     fetchCategories: () => Promise<void>;
     fetchChannels: (category?: string, sort?: string) => Promise<void>;
@@ -50,6 +54,13 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     affiliateStats: null,
     isLoading: false,
     error: null,
+    isPaywallOpen: false,
+    paywallReason: 'upsell',
+
+    setIsPaywallOpen: (open, reason) => set({ 
+        isPaywallOpen: open, 
+        paywallReason: reason || 'upsell' 
+    }),
 
     fetchUserStatus: async (userId: number) => {
         try {

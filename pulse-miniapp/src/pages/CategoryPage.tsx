@@ -87,7 +87,7 @@ export const CategoryPage: React.FC = () => {
                                 <TrendingUp size={18} />
                             </button>
                             <button
-                                onClick={() => navigate('/catalog/my')}
+                                onClick={() => useCatalogStore.getState().setIsPaywallOpen(true, 'limit')}
                                 className="p-2 rounded-lg transition-all text-text-secondary hover:text-text-primary"
                                 title="Мої канали"
                             >
@@ -186,7 +186,7 @@ export const CategoryPage: React.FC = () => {
                                                 const result = await subscribeToChannel(userId, ch.id);
                                                 if (!result.success && result.errorCode === 403) {
                                                     // Миттєвий редирект без зайвих запитань
-                                                    navigate('/catalog/my');
+                                                    useCatalogStore.getState().setIsPaywallOpen(true, 'limit');
                                                     return;
                                                 }
                                             }

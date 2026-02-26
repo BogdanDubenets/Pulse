@@ -1,6 +1,7 @@
 import { clsx } from 'clsx';
 import { useLocation } from 'react-router-dom';
 import { AppSwitcher } from './AppSwitcher';
+import { UpgradeModal } from './UpgradeModal';
 
 interface LayoutProps {
     children: React.ReactNode;
@@ -23,6 +24,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, className }) => {
 
                 {children}
             </div>
+            <UpgradeModal />
         </div>
     );
 };
