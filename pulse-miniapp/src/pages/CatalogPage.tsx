@@ -298,7 +298,7 @@ export const CatalogPage: React.FC = () => {
                                                     } else {
                                                         const res = await subscribeToChannel(userId, ch.id);
                                                         if (!res.success && res.errorCode === 403) {
-                                                            navigate('/catalog/my');
+                                                            useCatalogStore.getState().setIsPaywallOpen(true, 'limit');
                                                             return;
                                                         }
                                                     }
