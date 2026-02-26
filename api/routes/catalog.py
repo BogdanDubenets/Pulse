@@ -356,33 +356,7 @@ async def subscribe(req: SubscribeRequest, db: AsyncSession = Depends(get_db)):
                 detail=f"LIMIT_EXCEEDED|{status['limit']}" # Тригер для Mini App показати вікно оплати
             )
 
-        # 5. Перевірка GLobal Cooldown (24г)
-        user = await db.get(User, req.user_id)
-        if not user:
-            # Безпечна ініціалізація нового користувача
-            user = User(
-                id=req.user_id,
-                subscription_tier="demo",
-                is_active=True
-            )
-            db.add(user)
-            await db.flush()
-
-        if user.last_config_change_at:
-            now = datetime.now(timezone.utc)
-            lc_utc = user.last_config_change_at.replace(tzinfo=timezone.utc) if not user.last_config_change_at.tzinfo else user.last_config_change_at
-            cooldown_end = lc_utc + timedelta(hours=24)
-            if now < cooldown_end:
-                remaining = cooldown_end - now
-                hours, remainder = divmod(int(remaining.total_seconds()), 3600)
-                minutes, _ = divmod(remainder, 60)
-                time_str = f"{hours}г {minutes}хв" if hours > 0 else f"{minutes}хв"
-                raise HTTPException(
-                    status_code=403, 
-                    detail=f"Змінити конфігурацію можна раз на 24г. Залишилось: {time_str}"
-                )
-
-        # 6. Оновлення таймера та додавання підписки
+        # 6. Оновлення таймера (тільки при успішному додаванні) та додавання підписки
         user.last_config_change_at = datetime.now(timezone.utc)
 
         pos_stmt = select(func.max(UserSubscription.position)).where(UserSubscription.user_id == req.user_id)
@@ -592,26 +566,10 @@ async def add_custom_channel(req: CustomChannelRequest, db: AsyncSession = Depen
             detail=f"LIMIT_EXCEEDED|{status['limit']}"
         )
 
-    # 3. Перевірка GLobal Cooldown
-    user = await db.get(User, req.user_id)
-    if user and user.last_config_change_at:
-        now = datetime.now(timezone.utc)
-        lc_utc = user.last_config_change_at.replace(tzinfo=timezone.utc) if not user.last_config_change_at.tzinfo else user.last_config_change_at
-        cooldown_end = lc_utc + timedelta(hours=24)
-        if now < cooldown_end:
-            remaining = cooldown_end - now
-            hours, remainder = divmod(int(remaining.total_seconds()), 3600)
-            minutes, _ = divmod(remainder, 60)
-            time_str = f"{hours}г {minutes}хв" if hours > 0 else f"{minutes}хв"
-            raise HTTPException(
-                status_code=403, 
-                detail=f"Змінити конфігурацію можна раз на 24г. Залишилось: {time_str}"
-            )
-
-    # 2. Парсинг username
+    # 3. Парсинг username
     username = req.url.replace("https://t.me/", "").replace("@", "").split("/")[0]
     
-    # 3. Валідація через Telegram Bot API
+    # 4. Валідація через Telegram Bot API
     token = config.BOT_TOKEN.get_secret_value()
     async with httpx.AsyncClient() as client:
         resp = await client.get(f"https://api.telegram.org/bot{token}/getChat?chat_id=@{username}")
