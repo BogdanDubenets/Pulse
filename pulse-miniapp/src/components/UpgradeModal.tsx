@@ -29,10 +29,19 @@ export const UpgradeModal: React.FC = () => {
             const invoiceLink = await createInvoice(userId, selectedTier);
 
             if (invoiceLink) {
-                (window.Telegram?.WebApp as any).openInvoice(invoiceLink, (status: string) => {
+                (window.Telegram?.WebApp as any).openInvoice(invoiceLink, async (status: string) => {
                     if (status === 'paid') {
-                        fetchUserStatus(userId);
-                        setIsPaywallOpen(false);
+                        // Запускаємо поллінг для оновлення статусу
+                        let attempts = 0;
+                        const maxAttempts = 10;
+                        const interval = setInterval(async () => {
+                            attempts++;
+                            const updated = await fetchUserStatus(userId) as any;
+                            if (updated?.tier === selectedTier || attempts >= maxAttempts) {
+                                clearInterval(interval);
+                                setIsPaywallOpen(false);
+                            }
+                        }, 2000);
                     }
                     setIsSubscribing(false);
                 });

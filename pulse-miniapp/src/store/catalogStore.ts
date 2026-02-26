@@ -9,6 +9,7 @@ export interface UserStatus {
     limit: number;
     can_add: boolean;
     expires_at?: string;
+    bonus_days?: number;
 }
 
 export interface AffiliateStats {

@@ -411,9 +411,18 @@ export const MyChannelsPage: React.FC = () => {
                                         <Sparkles className="w-3 h-3 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
                                     </div>
                                     {userStatus.expires_at && (
-                                        <p className="text-[8px] text-text-muted mt-1">
-                                            до {new Date(userStatus.expires_at).toLocaleDateString()}
-                                        </p>
+                                        <div className="flex items-center gap-1.5 mt-1">
+                                            <p className="text-[8px] text-text-muted">
+                                                до {new Date(userStatus.expires_at).toLocaleDateString()}
+                                            </p>
+                                            {(userStatus.bonus_days ?? 0) > 0 && (
+                                                <div className="flex items-center px-1 py-0.5 bg-primary/10 rounded-md border border-primary/20">
+                                                    <span className="text-[7px] font-black text-primary uppercase">
+                                                        +{userStatus.bonus_days} дн. бонус
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
                             </div>

@@ -19,11 +19,11 @@ async def on_pre_checkout_query(pre_checkout_query: PreCheckoutQuery):
 @router.message(F.successful_payment)
 async def on_successful_payment(message: types.Message):
     """
-    Обробка успішного платежу. Це повідомлення приходить ВІД Telegram БОТУ,
-    коли користувач оплатив інвойс у Mini App.
+    Обробка успішного платежу.
+    Впроваджено перерахунок залишку днів (Proration) з заокругленням вгору.
     """
     payment = message.successful_payment
-    payload = payment.invoice_payload # Наприклад: "sub_premium_461874849"
+    payload = payment.invoice_payload
     
     logger.info(f"💰 Successful payment received: {payload}")
     
@@ -32,26 +32,62 @@ async def on_successful_payment(message: types.Message):
         tier = parts[1]
         user_id = int(parts[2])
         
+        # Ціни для розрахунку (Stars/день)
+        prices = {"basic": 60, "standard": 90, "premium": 120}
+        
         async with AsyncSessionLocal() as session:
-            # Оновлюємо статус користувача
-            now = datetime.now(timezone.utc)
-            # За замовчуванням +30 днів
-            expires_at = now + timedelta(days=30)
+            # Отримуємо поточний статус
+            res = await session.execute(select(User).where(User.id == user_id))
+            user = res.scalar_one_or_none()
             
-            # TODO: Тут можна додати логіку бонусних днів, 
-            # якщо перехід був Upgrade. Але для MVP — просто оновлюємо план.
+            if not user:
+                return
+
+            now = datetime.now(timezone.utc)
+            current_expiry = user.subscription_expires_at
+            if current_expiry and current_expiry.tzinfo is None:
+                current_expiry = current_expiry.replace(tzinfo=timezone.utc)
+
+            bonus_days = 0
+            info_msg = ""
+            
+            # Логіка перерахунку (Proration)
+            if current_expiry and current_expiry > now:
+                remaining_days = (current_expiry - now).days
+                if remaining_days > 0 and user.subscription_tier in prices:
+                    old_rate = prices[user.subscription_tier] / 30
+                    new_rate = prices[tier] / 30
+                    
+                    # Заокруглення вгору на користь користувача
+                    import math
+                    bonus_days = math.ceil((remaining_days * old_rate) / new_rate)
+                    
+                    info_msg = (
+                        f"📊 <b>Чесний перерахунок:</b>\n"
+                        f"Ваш залишок ({remaining_days} дн. {user.subscription_tier.capitalize()}) "
+                        f"конвертовано у <b>{bonus_days} бонусних днів</b> плану {tier.capitalize()}.\n\n"
+                    )
+
+            # Розрахунок нової дати: 30 днів + бонуси
+            total_days = 30 + bonus_days
+            new_expires_at = now + timedelta(days=total_days)
             
             stmt = update(User).where(User.id == user_id).values(
                 subscription_tier=tier,
-                subscription_expires_at=expires_at
+                subscription_expires_at=new_expires_at,
+                bonus_days=bonus_days
             )
             await session.execute(stmt)
             await session.commit()
             
-            logger.info(f"✅ User {user_id} upgraded to {tier} until {expires_at}")
+            logger.info(f"✅ User {user_id} upgraded to {tier} until {new_expires_at} (Bonus: {bonus_days})")
             
             await message.answer(
                 f"🎉 <b>Дякуємо за підписку!</b>\n\n"
-                f"Ваш план оновлено до <b>{tier.capitalize()}</b>.\n"
-                f"Тепер у вас більше слотів для каналів та доступ до преміум-функцій Pulse. ✨"
+                f"{info_msg}"
+                f"Ваш план: <b>{tier.capitalize()}</b>\n"
+                f"Діє до: <b>{new_expires_at.strftime('%d.%m.%Y')}</b>\n"
+                f"<i>(+{bonus_days} бонусних днів враховано)</i>\n\n"
+                f"Слоти та функції Pulse вже активовані! ✨",
+                parse_mode="HTML"
             )

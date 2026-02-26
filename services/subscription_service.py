@@ -51,6 +51,7 @@ class SubscriptionService:
             "limit": limit,
             "can_add": sub_count < limit,
             "expires_at": expires_at.isoformat() if expires_at else None,
+            "bonus_days": getattr(user, "bonus_days", 0) if user else 0,
             "is_active": user.is_active if user else True
         }
 
