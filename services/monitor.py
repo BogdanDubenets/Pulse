@@ -62,20 +62,38 @@ class ChannelMonitor:
         logger.info("Telethon Client started & Event Handler registered!")
 
     async def refresh_channels(self):
-        """Оновлює локальний кеш активних каналів з БД."""
+        """Оновлює локальний кеш активних каналів з БД та лікує 'сиріт'."""
         try:
             from database.models import UserSubscription
             async with AsyncSessionLocal() as session:
-                # Вибираємо лише ті канали, у яких є підписники та які активні
-                query = (
+                # 1. Канали, які ПОТРІБНО моніторити (активні + є підписки)
+                active_query = (
                     select(Channel)
                     .join(UserSubscription, Channel.id == UserSubscription.channel_id)
                     .where(Channel.is_active == True)
                     .distinct()
                 )
-                result = await session.execute(query)
+                result = await session.execute(active_query)
                 channels = result.scalars().all()
                 
+                # 2. Пошук 'сиріт' (активні, але немає підписок і не ядро)
+                orphans_query = (
+                    select(Channel)
+                    .outerjoin(UserSubscription, Channel.id == UserSubscription.channel_id)
+                    .where(Channel.is_active == True, UserSubscription.id == None, Channel.is_core == False)
+                )
+                orphans_res = await session.execute(orphans_query)
+                orphans = orphans_res.scalars().all()
+                
+                if orphans:
+                    logger.info(f"🧹 Знайдено {len(orphans)} каналів-сиріт для очищення.")
+                    for orphan in orphans:
+                        identifier = orphan.username or orphan.telegram_id
+                        if identifier:
+                            await self.leave_channel(identifier)
+                        orphan.is_active = False # Видаляємо з каталогу теж
+                    await session.commit()
+
             self.active_channels.clear()
             self.username_to_id.clear()
             
@@ -83,21 +101,17 @@ class ChannelMonitor:
             channels_to_join = []
             for ch in channels:
                 self._add_to_cache(ch)
-                # Перевіряємо, чи ми вже приєднані до цього каналу
                 channels_to_join.append(ch)
-                # Якщо канал активний для моніторингу, але ще не сканувався — плануємо сканування історії (24г)
                 if ch.last_scanned_at is None:
                     channels_to_scan.append(ch)
                     
-            logger.info(f"Оновлено список каналів: {len(channels)} каналів. З них нових для сканування: {len(channels_to_scan)}")
+            logger.info(f"Оновлено список каналів: {len(channels)} активних. Очищено: {len(orphans)}")
             
-            # Приєднуємось до всіх активних каналів, якщо ще не приєднані
             for ch in channels_to_join:
                 identifier = ch.username or ch.telegram_id
                 if identifier:
                     await self.join_channel(identifier)
             
-            # Запускаємо сканування для нових каналів (24 години)
             for ch in channels_to_scan:
                 identifier = ch.username or ch.telegram_id
                 if identifier:
@@ -159,9 +173,33 @@ class ChannelMonitor:
             logger.info(f"Successfully joined channel: {identifier}")
         except FloodWaitError as e:
             logger.warning(f"⏳ FloodWait при спробі приєднатися до {identifier}: {e.seconds}с")
-            # Не блокуємо основний потік
         except Exception as e:
             logger.debug(f"Info: Already in channel or cannot join {identifier}: {e}")
+
+    async def leave_channel(self, identifier):
+        """Виходить з каналу."""
+        try:
+            from telethon.tl.functions.channels import LeaveChannelRequest
+            await self.client(LeaveChannelRequest(identifier))
+            logger.info(f"Successfully left channel: {identifier}")
+        except Exception as e:
+            logger.error(f"Error leaving channel {identifier}: {e}")
+
+    async def check_channel_liveness(self, identifier) -> bool:
+        """Перевіряє чи канал живий (пост за останні 30 днів)."""
+        try:
+            async for message in self.client.iter_messages(identifier, limit=1):
+                if message.date:
+                    # Telethon message.date is already timezone-aware UTC
+                    thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+                    if message.date < thirty_days_ago:
+                        logger.info(f"❄️ Канал {identifier} неактивний (останній пост > 30 днів тому)")
+                        return False
+                    return True
+            return False # Постів немає взагалі
+        except Exception as e:
+            logger.warning(f"⚠️ Не вдалося перевірити активність {identifier}: {e}")
+            return True # Припускаємо що живий
 
     async def _scan_channel(self, channel_db_id: int, telegram_identifier: int | str, limit: int = 100, hours: int = None):
         """

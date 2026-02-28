@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database.connection import AsyncSessionLocal
 from database.models import Channel, Auction, User, UserSubscription, Category, ChannelCategory
 from services.subscription_service import subscription_service
+from services.monitor import monitor
 from pydantic import BaseModel, HttpUrl
 from typing import List, Optional
 from datetime import datetime, timedelta, timezone
@@ -450,7 +451,7 @@ async def unsubscribe(req: SubscribeRequest, db: AsyncSession = Depends(get_db))
     sub = res.scalar_one_or_none()
     
     if sub:
-        # Перевірка Global Cooldown
+        # Перевірка Global Cooldown (24г від останньої ЗМІНИ або ДОДАВАННЯ)
         user = await db.get(User, req.user_id)
         if user and user.last_config_change_at:
             now = datetime.now(timezone.utc)
@@ -466,9 +467,10 @@ async def unsubscribe(req: SubscribeRequest, db: AsyncSession = Depends(get_db))
                     detail=f"Змінювати активну підписку можна раз на 24г. Залишилось: {time_str}"
                 )
         
-        if user:
-            user.last_config_change_at = datetime.now(timezone.utc)
-
+        # ВАЖЛИВО: При самій ВІДПИСЦІ ми НЕ оновлюємо last_config_change_at.
+        # Це дозволяє користувачеві видалити будь-яку кількість каналів за один раз,
+        # якщо 24-годинний період з моменту останнього ДОДАВАННЯ вже минув.
+        
         await db.delete(sub)
         await db.commit()
     
@@ -596,6 +598,22 @@ async def add_custom_channel(req: CustomChannelRequest, db: AsyncSession = Depen
             raise HTTPException(status_code=400, detail="Канал не знайдено в Telegram")
         
         tg_data = resp.json().get("result", {})
+        
+        # 3.5 Перевірка на "живучість" (Liveness) через Userbot
+        try:
+            if not monitor.client.is_connected():
+                await monitor.client.connect()
+            is_live = await monitor.check_channel_liveness(username)
+            if not is_live:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Канал неактивний (немає нових публікацій за останні 30 днів). Додавання відхилено."
+                )
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.warning(f"Помилка перевірки liveness для {username}: {e}")
+            # Пропускаємо далі, якщо технічна помилка перевірки
         
         # 4. Перевірити чи існує канал в нашій базі
         stmt = select(Channel).where(Channel.telegram_id == tg_data["id"])
