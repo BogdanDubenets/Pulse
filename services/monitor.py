@@ -80,13 +80,22 @@ class ChannelMonitor:
             self.username_to_id.clear()
             
             channels_to_scan = []
+            channels_to_join = []
             for ch in channels:
                 self._add_to_cache(ch)
+                # Перевіряємо, чи ми вже приєднані до цього каналу
+                channels_to_join.append(ch)
                 # Якщо канал активний для моніторингу, але ще не сканувався — плануємо сканування історії (24г)
                 if ch.last_scanned_at is None:
                     channels_to_scan.append(ch)
                     
             logger.info(f"Оновлено список каналів: {len(channels)} каналів. З них нових для сканування: {len(channels_to_scan)}")
+            
+            # Приєднуємось до всіх активних каналів, якщо ще не приєднані
+            for ch in channels_to_join:
+                identifier = ch.username or ch.telegram_id
+                if identifier:
+                    await self.join_channel(identifier)
             
             # Запускаємо сканування для нових каналів (24 години)
             for ch in channels_to_scan:
